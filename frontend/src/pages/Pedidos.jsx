@@ -993,42 +993,43 @@ const Pedidos = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">Pedidos e Produtos</h1>
 
-      {/* Seção de filtros (compacta) */}
-      <div className="bg-white rounded-lg shadow p-3 form-compact">
-        <h2 className="text-base font-semibold text-gray-700 mb-2">Filtros</h2>
-        <div className="overflow-x-auto">
-          <div className="grid grid-cols-6 gap-2 grid-compact min-w-[1200px]">
+      {/* Seção de filtros responsivos */}
+      <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <h2 className="text-lg font-semibold text-gray-700 mb-4">Filtros</h2>
+        
+        {/* Grid responsivo para filtros */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">
           <div>
-            <label className="block label-sm font-medium text-gray-700 mb-1">Cliente</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Cliente</label>
             <input
               type="text"
               name="cliente"
               value={filtros.cliente}
               onChange={handleFiltroChange}
               placeholder="Filtrar por cliente"
-              className="input-field input-field-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
           <div>
-            <label className="block label-sm font-medium text-gray-700 mb-1">Produto/Descrição</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Produto/Descrição</label>
             <input
               type="text"
               name="produto"
               value={filtros.produto}
               onChange={handleFiltroChange}
-              placeholder="Filtrar por produto ou descrição"
-              className="input-field input-field-sm"
+              placeholder="Filtrar por produto"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
           <div>
-            <label className="block label-sm font-medium text-gray-700 mb-1">Status</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
             <select
               name="status"
               value={filtros.status}
               onChange={handleFiltroChange}
-              className="input-field input-field-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">Todos</option>
               <option value="pendente">Pendente</option>
@@ -1038,45 +1039,45 @@ const Pedidos = () => {
           </div>
 
           <div>
-            <label className="block label-sm font-medium text-gray-700 mb-1">Ferramenta</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Ferramenta</label>
             <input
               type="text"
               name="ferramenta"
               value={filtros.ferramenta}
               onChange={handleFiltroChange}
-              placeholder="Ex.: TP-0192, EXP-910"
-              className="input-field input-field-sm"
+              placeholder="Ex.: TP-0192"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
-          <div>
-            <label className="block label-sm font-medium text-gray-700 mb-1">Comprimento do Acabado (mm)</label>
+          <div className="sm:col-span-2 lg:col-span-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Comprimento (mm)</label>
             <input
               type="text"
               name="comprimento"
               value={filtros.comprimento}
               onChange={handleFiltroChange}
               placeholder="Ex.: 1100"
-              className="input-field input-field-sm"
+              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
-
-          <div className="col-span-1 flex items-end justify-end">
-            <button
-              type="button"
-              className="btn-secondary text-xs px-3 py-1.5"
-              onClick={limparFiltros}
-            >
-              Limpar Filtros
-            </button>
-          </div>
-          </div>
+        </div>
+        
+        {/* Botão de limpar filtros */}
+        <div className="flex justify-end">
+          <button
+            type="button"
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+            onClick={limparFiltros}
+          >
+            Limpar Filtros
+          </button>
         </div>
       </div>
 
       {/* Tabela de pedidos */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto pb-4">
+        <div className="overflow-x-auto pb-6">
           <table className="min-w-full divide-y divide-gray-200 table-compact">
             <thead className="bg-gray-50">
               <tr>
