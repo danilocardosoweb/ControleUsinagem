@@ -4,10 +4,24 @@ import react from '@vitejs/plugin-react'
 // https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
+  base: '/',
+  build: {
+    outDir: 'dist',
+    assetsDir: 'assets',
+    sourcemap: false,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom'],
+          router: ['react-router-dom']
+        }
+      }
+    }
+  },
   server: {
-    host: '0.0.0.0',  // Permite acesso de qualquer IP
-    port: 5173,       // Porta padrão; pode ser sobrescrita via CLI (--port)
-    strictPort: false, // Permite escolher outra porta se 5173 estiver ocupada
+    host: '0.0.0.0',
+    port: 5173,
+    strictPort: false,
     proxy: {
       '/api': {
         target: 'http://localhost:8000',
