@@ -1012,136 +1012,138 @@ const Relatorios = () => {
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-800">Relatórios</h1>
       
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 md:p-6">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">Filtros</h2>
         
         <form onSubmit={handleSubmit}>
-          <div className="overflow-x-auto">
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 min-w-[1200px] items-end">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tipo de Relatório
-                </label>
-                <select
-                  name="tipoRelatorio"
-                  value={filtros.tipoRelatorio}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  {tiposRelatorio.map(tipo => (
-                    <option key={tipo.id} value={tipo.id}>{tipo.nome}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data Início
-                </label>
-                <input
-                  type="date"
-                  name="dataInicio"
-                  value={filtros.dataInicio}
-                  onChange={handleChange}
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Data Fim
-                </label>
-                <input
-                  type="date"
-                  name="dataFim"
-                  value={filtros.dataFim}
-                  onChange={handleChange}
-                  className="input-field"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Máquina
-                </label>
-                <select
-                  name="maquina"
-                  value={filtros.maquina}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  <option value="">Todas as máquinas</option>
-                  {maquinas.map(maq => (
-                    <option key={maq.id} value={maq.id}>{maq.nome}</option>
-                  ))}
-                </select>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Operador
-                </label>
-                <select
-                  name="operador"
-                  value={filtros.operador}
-                  onChange={handleChange}
-                  className="input-field"
-                >
-                  <option value="">Todos os operadores</option>
-                  {operadores.map(op => (
-                    <option key={op.id} value={op.id}>{op.nome}</option>
-                  ))}
-                </select>
-              </div>
-              
-              {/* Modo de Exibição (apenas para rastreabilidade) */}
-              {filtros.tipoRelatorio === 'rastreabilidade' && (
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Modo de Exibição
-                  </label>
-                  <select
-                    name="modo"
-                    value={filtros.modo}
-                    onChange={handleChange}
-                    className="input-field"
-                  >
-                    <option value="detalhado">Detalhado (1 linha por amarrado)</option>
-                    <option value="compacto">Compacto (amarrados concatenados)</option>
-                  </select>
-                </div>
-              )}
-              
-              <div className="flex items-end justify-end">
-                <div className="w-full">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Formato de Exportação
-                  </label>
-                  <div className="flex items-end gap-2">
-                    <select
-                      name="formato"
-                      value={filtros.formato}
-                      onChange={handleChange}
-                      className="input-field"
-                    >
-                      <option value="excel">Excel</option>
-                      <option value="pdf">PDF</option>
-                    </select>
-                    <button type="submit" className="btn-primary whitespace-nowrap">
-                      Gerar Relatório
-                    </button>
-                  </div>
-                </div>
-              </div>
+          {/* Grid responsivo para filtros principais */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Tipo de Relatório
+              </label>
+              <select
+                name="tipoRelatorio"
+                value={filtros.tipoRelatorio}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                {tiposRelatorio.map(tipo => (
+                  <option key={tipo.id} value={tipo.id}>{tipo.nome}</option>
+                ))}
+              </select>
             </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data Início
+              </label>
+              <input
+                type="date"
+                name="dataInicio"
+                value={filtros.dataInicio}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Data Fim
+              </label>
+              <input
+                type="date"
+                name="dataFim"
+                value={filtros.dataFim}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Máquina
+              </label>
+              <select
+                name="maquina"
+                value={filtros.maquina}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">Todas as máquinas</option>
+                {maquinas.map(maq => (
+                  <option key={maq.id} value={maq.id}>{maq.nome}</option>
+                ))}
+              </select>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Operador
+              </label>
+              <select
+                name="operador"
+                value={filtros.operador}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">Todos os operadores</option>
+                {operadores.map(op => (
+                  <option key={op.id} value={op.id}>{op.nome}</option>
+                ))}
+              </select>
+            </div>
+            
+            {/* Modo de Exibição (apenas para rastreabilidade) */}
+            {filtros.tipoRelatorio === 'rastreabilidade' && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Modo de Exibição
+                </label>
+                <select
+                  name="modo"
+                  value={filtros.modo}
+                  onChange={handleChange}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                >
+                  <option value="detalhado">Detalhado (1 linha por amarrado)</option>
+                  <option value="compacto">Compacto (amarrados concatenados)</option>
+                </select>
+              </div>
+            )}
+          </div>
+          
+          {/* Seção de formato e botão */}
+          <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 pt-4 border-t border-gray-200">
+            <div className="sm:w-48">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Formato de Exportação
+              </label>
+              <select
+                name="formato"
+                value={filtros.formato}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="excel">Excel</option>
+                <option value="pdf">PDF</option>
+              </select>
+            </div>
+            
+            <button 
+              type="submit" 
+              className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors whitespace-nowrap"
+            >
+              Gerar Relatório
+            </button>
           </div>
         </form>
       </div>
       
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white rounded-lg shadow p-4 md:p-6">
         <h2 className="text-lg font-semibold text-gray-700 mb-4">Visualização Prévia</h2>
         
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto pb-4">
           <PreviewRelatorio tipo={filtros.tipoRelatorio} />
         </div>
       </div>
