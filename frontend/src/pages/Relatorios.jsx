@@ -1016,8 +1016,8 @@ const Relatorios = () => {
         <h2 className="text-lg font-semibold text-gray-700 mb-4">Filtros</h2>
         
         <form onSubmit={handleSubmit}>
-          {/* Grid responsivo para filtros principais */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-4">
+          {/* Grid responsivo para filtros principais (5 colunas em md+) */}
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tipo de Relatório

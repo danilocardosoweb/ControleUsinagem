@@ -883,7 +883,7 @@ const Configuracoes = () => {
                 {modoEdicao ? 'Editar Usuário' : 'Adicionar Novo Usuário'}
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Nome
@@ -1338,7 +1338,7 @@ const Configuracoes = () => {
                 {modoEdicaoMaquina ? 'Editar Máquina' : 'Adicionar Nova Máquina'}
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-6 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Código *
@@ -1553,7 +1553,7 @@ const Configuracoes = () => {
                 {modoEdicaoInsumo ? 'Editar Insumo' : 'Adicionar Novo Insumo'}
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Código *
@@ -1745,10 +1745,10 @@ const Configuracoes = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-700 mb-4">Configurações do Processo</h2>
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tempo Padrão de Setup (minutos)
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Setup (min)
                 </label>
                 <input
                   type="number"
@@ -1760,8 +1760,8 @@ const Configuracoes = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Tempo Padrão de Manutenção (minutos)
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Manut. (min)
                 </label>
                 <input
                   type="number"
@@ -1773,8 +1773,8 @@ const Configuracoes = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Meta de OEE (%)
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Meta OEE (%)
                 </label>
                 <input
                   type="number"
@@ -1788,8 +1788,8 @@ const Configuracoes = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Horas por Turno
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Horas/Turno
                 </label>
                 <input
                   type="number"
@@ -1801,8 +1801,8 @@ const Configuracoes = () => {
               </div>
               
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Dias Úteis por Mês
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Dias Úteis/Mês
                 </label>
                 <input
                   type="number"

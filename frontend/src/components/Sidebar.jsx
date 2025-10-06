@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { FaCog, FaChartBar, FaClipboardList, FaTools, FaFileAlt, FaTachometerAlt, FaBars, FaTimes } from 'react-icons/fa'
+import { FaCog, FaChartBar, FaClipboardList, FaTools, FaFileAlt, FaTachometerAlt, FaBars, FaTimes, FaClock } from 'react-icons/fa'
 
 const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
   const [menuRecolhido, setMenuRecolhido] = useState(false)
@@ -11,6 +11,7 @@ const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
     { path: '/apontamentos-usinagem', name: 'Apontamentos de Usinagem', icon: <FaClipboardList /> },
     { path: '/apontamentos-paradas', name: 'Apontamentos de Paradas', icon: <FaTools /> },
     { path: '/relatorios', name: 'Relatórios', icon: <FaChartBar /> },
+    { path: '/previsao-trabalho', name: 'Previsão Trab.', icon: <FaClock /> },
     { path: '/configuracoes', name: 'Configurações', icon: <FaCog /> },
   ]
 

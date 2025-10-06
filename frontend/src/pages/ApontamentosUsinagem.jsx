@@ -283,6 +283,8 @@ const ApontamentosUsinagem = () => {
   const [rackDigitado, setRackDigitado] = useState('')
   const [lotesEncontrados, setLotesEncontrados] = useState([]) // [{id?, lote}]
   const [lotesSelecionados, setLotesSelecionados] = useState([]) // [lote]
+  const [amarradosSelecionadosRack, setAmarradosSelecionadosRack] = useState([]) // [{lote, codigo, ...}]
+  const [lotesExpandidos, setLotesExpandidos] = useState([]) // [lote] - controla quais lotes estão expandidos
   // Digitar Lote de Extrusão manualmente
   const [manualAberto, setManualAberto] = useState(false)
   const [manualLotesTxt, setManualLotesTxt] = useState('')
@@ -349,7 +351,7 @@ const ApontamentosUsinagem = () => {
         }
       }
       
-      // Agregar por número do lote (usando SOMENTE dados da base "Dados • Lotes")
+      // Agregar por número do lote, incluindo amarrados
       const map = new Map()
       for (const l of lista) {
         const num = String(l.lote || '').trim()
@@ -358,8 +360,10 @@ const ApontamentosUsinagem = () => {
         const p = pedidoSeq.includes('/') ? pedidoSeq.split('/') : ['', '']
         const pedido = p[0] || ''
         const seq = p[1] || ''
-        const produtoPlanilha = String(l.produto || getCampoOriginalLote(l, 'Produto') || l.codigo || '').trim() // preferir 'Produto' da planilha
+        const produtoPlanilha = String(l.produto || getCampoOriginalLote(l, 'Produto') || l.codigo || '').trim()
         const ferramentaPlanilha = extrairFerramenta(produtoPlanilha || '')
+        const amarradoCodigo = String(l.codigo || getCampoOriginalLote(l, 'Amarrado') || '').trim()
+        
         if (!map.has(num)) {
           map.set(num, {
             lote: num,
@@ -367,7 +371,8 @@ const ApontamentosUsinagem = () => {
             ferramenta: ferramentaPlanilha,
             romaneios: new Set(),
             pedido,
-            seq
+            seq,
+            amarrados: []
           })
         }
         const entry = map.get(num)
@@ -376,7 +381,25 @@ const ApontamentosUsinagem = () => {
         if (!entry.ferramenta && ferramentaPlanilha) entry.ferramenta = ferramentaPlanilha
         const rom = String(l.romaneio || '').trim()
         if (rom) entry.romaneios.add(rom)
+        
+        // Adicionar amarrado se não existir já
+        if (amarradoCodigo && !entry.amarrados.some(a => a.codigo === amarradoCodigo)) {
+          entry.amarrados.push({
+            codigo: amarradoCodigo,
+            rack: String(l.rack_embalagem || '').trim(),
+            lote: num,
+            produto: produtoPlanilha,
+            pedido_seq: pedidoSeq,
+            romaneio: rom,
+            qt_kg: Number(l.qt_kg || 0),
+            qtd_pc: Number(l.qtd_pc || 0),
+            situacao: String(l.situacao || '').trim(),
+            embalagem_data: l.embalagem_data || null,
+            nota_fiscal: String(l.nota_fiscal || '').trim()
+          })
+        }
       }
+      
       // Converter para array e mesclar romaneios únicos
       const unicos = Array.from(map.values()).map(e => ({
         lote: e.lote,
@@ -384,7 +407,8 @@ const ApontamentosUsinagem = () => {
         ferramenta: e.ferramenta,
         romaneio: Array.from(e.romaneios).join(', '),
         pedido: e.pedido,
-        seq: e.seq
+        seq: e.seq,
+        amarrados: e.amarrados
       }))
       setLotesEncontrados(unicos)
       setLotesSelecionados(prev => prev.filter(v => unicos.some(x => x.lote === v)))
@@ -484,9 +508,74 @@ const ApontamentosUsinagem = () => {
     setLotesSelecionados(prev => prev.includes(num) ? prev.filter(x => x !== num) : [...prev, num])
   }
 
+  // Marca/desmarca um amarrado específico
+  const toggleAmarradoSelecionado = (amarrado) => {
+    setAmarradosSelecionadosRack(prev => {
+      const existe = prev.some(a => a.codigo === amarrado.codigo && a.lote === amarrado.lote)
+      if (existe) {
+        return prev.filter(a => !(a.codigo === amarrado.codigo && a.lote === amarrado.lote))
+      } else {
+        return [...prev, amarrado]
+      }
+    })
+  }
+
+  // Seleciona todos os amarrados de um lote
+  const selecionarTodosAmarradosDoLote = (lote) => {
+    const loteObj = lotesEncontrados.find(l => l.lote === lote)
+    if (!loteObj || !loteObj.amarrados) return
+    
+    setAmarradosSelecionadosRack(prev => {
+      // Remove amarrados existentes deste lote
+      const semEsteL = prev.filter(a => a.lote !== lote)
+      // Adiciona todos os amarrados do lote
+      return [...semEsteL, ...loteObj.amarrados]
+    })
+  }
+
+  // Desmarca todos os amarrados de um lote
+  const desmarcarTodosAmarradosDoLote = (lote) => {
+    setAmarradosSelecionadosRack(prev => prev.filter(a => a.lote !== lote))
+  }
+
+  // Verifica se todos os amarrados de um lote estão selecionados
+  const todoAmarradosDoLoteSelecionados = (lote) => {
+    const loteObj = lotesEncontrados.find(l => l.lote === lote)
+    if (!loteObj || !loteObj.amarrados || loteObj.amarrados.length === 0) return false
+    return loteObj.amarrados.every(a => 
+      amarradosSelecionadosRack.some(sel => sel.codigo === a.codigo && sel.lote === a.lote)
+    )
+  }
+
+  // Toggle expandir/recolher lote
+  const toggleLoteExpandido = (lote) => {
+    setLotesExpandidos(prev => 
+      prev.includes(lote) ? prev.filter(l => l !== lote) : [...prev, lote]
+    )
+  }
+
   // Salva Rack e lotes escolhidos no formulário principal
   const salvarRackELotes = () => {
     const rack = String(rackDigitado || '').trim()
+    
+    // Prioriza amarrados selecionados individualmente
+    if (amarradosSelecionadosRack.length > 0) {
+      const lotesUnicos = Array.from(new Set(amarradosSelecionadosRack.map(a => a.lote)))
+      const racksUnicos = Array.from(new Set(amarradosSelecionadosRack.map(a => a.rack).filter(Boolean)))
+      const rackFinal = racksUnicos.length > 1 ? 'MÚLTIPLOS RACKS' : (racksUnicos[0] || rack)
+      
+      setFormData(prev => ({
+        ...prev,
+        rack_ou_pallet: rackFinal,
+        rackOuPallet: rackFinal,
+        lotesExternos: lotesUnicos,
+        amarradosDetalhados: amarradosSelecionadosRack
+      }))
+      setRackModalAberto(false)
+      setAmarradosSelecionadosRack([])
+      setLotesExpandidos([])
+      return
+    }
     
     // Verifica se há lotes selecionados
     if (!lotesSelecionados.length) { 
@@ -510,6 +599,7 @@ const ApontamentosUsinagem = () => {
           lotesExternos: [...lotesSelecionados]
         }))
         setRackModalAberto(false)
+        setAmarradosSelecionadosRack([])
         return
       }
     }
@@ -527,6 +617,7 @@ const ApontamentosUsinagem = () => {
       lotesExternos: [...lotesSelecionados]
     }))
     setRackModalAberto(false)
+    setAmarradosSelecionadosRack([])
   }
   
   // Lista simulada de operadores (máquinas virão do IndexedDB)
@@ -1564,28 +1655,76 @@ const ApontamentosUsinagem = () => {
                     </div>
                   )}
                   {lotesEncontrados.map((l) => (
-                    <div key={l.lote} className="flex items-start gap-3 text-sm py-1">
-                      <input
-                        type="checkbox"
-                        className="mt-1"
-                        checked={lotesSelecionados.includes(l.lote)}
-                        onChange={()=>toggleLoteSelecionado(l.lote)}
-                      />
-                      <div className="flex-1">
-                        <div className="font-semibold whitespace-nowrap">Lote: {l.lote}</div>
-                        <div className="text-gray-700 text-xs mt-1">
-                          <div>Produto: {l.produto || '-'}</div>
-                          <div>
-                            Ferramenta: {l.ferramenta ? (
-                              <span className="inline-block px-2 py-0.5 rounded bg-primary-50 text-primary-700 font-semibold">{l.ferramenta}</span>
-                            ) : '-'}
+                    <div key={l.lote} className="border rounded p-3 bg-gray-50">
+                      <div className="flex items-start gap-3 text-sm">
+                        <input
+                          type="checkbox"
+                          className="mt-1"
+                          checked={todoAmarradosDoLoteSelecionados(l.lote)}
+                          onChange={() => {
+                            if (todoAmarradosDoLoteSelecionados(l.lote)) {
+                              desmarcarTodosAmarradosDoLote(l.lote)
+                            } else {
+                              selecionarTodosAmarradosDoLote(l.lote)
+                            }
+                          }}
+                        />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="font-semibold whitespace-nowrap">
+                              Lote: {l.lote} ({l.amarrados?.length || 0} amarrados)
+                            </div>
+                            {l.amarrados && l.amarrados.length > 0 && (
+                              <button
+                                type="button"
+                                className="text-xs text-blue-600 hover:text-blue-800 px-2 py-1 rounded border border-blue-200 hover:bg-blue-50"
+                                onClick={() => toggleLoteExpandido(l.lote)}
+                              >
+                                {lotesExpandidos.includes(l.lote) ? 'Recolher' : 'Expandir'}
+                              </button>
+                            )}
                           </div>
-                          {l.rack && (
-                            <div>Rack: <span className="font-semibold text-blue-600">{l.rack}</span></div>
+                          <div className="text-gray-700 text-xs mt-1">
+                            <div>Produto: {l.produto || '-'}</div>
+                            <div>
+                              Ferramenta: {l.ferramenta ? (
+                                <span className="inline-block px-2 py-0.5 rounded bg-primary-50 text-primary-700 font-semibold">{l.ferramenta}</span>
+                              ) : '-'}
+                            </div>
+                            {l.rack && (
+                              <div>Rack: <span className="font-semibold text-blue-600">{l.rack}</span></div>
+                            )}
+                            <div>Romaneio: {l.romaneio || '-'}</div>
+                            <div>Pedido: {l.pedido || '-'}</div>
+                            <div>Seq: {l.seq || '-'}</div>
+                          </div>
+                          
+                          {/* Lista de amarrados - só mostra se expandido */}
+                          {l.amarrados && l.amarrados.length > 0 && lotesExpandidos.includes(l.lote) && (
+                            <div className="mt-2 border-t pt-2">
+                              <div className="text-xs font-medium text-gray-600 mb-1">Amarrados:</div>
+                              <div className="space-y-1 max-h-32 overflow-y-auto">
+                                {l.amarrados.map((amarrado, idx) => (
+                                  <div key={`${amarrado.lote}-${amarrado.codigo}`} className="flex items-center gap-2 text-xs">
+                                    <input
+                                      type="checkbox"
+                                      className="text-xs"
+                                      checked={amarradosSelecionadosRack.some(a => a.codigo === amarrado.codigo && a.lote === amarrado.lote)}
+                                      onChange={() => toggleAmarradoSelecionado(amarrado)}
+                                    />
+                                    <span className="font-mono text-blue-600">{amarrado.codigo}</span>
+                                    <span className="text-gray-500">
+                                      {amarrado.qt_kg > 0 && `${amarrado.qt_kg}kg`}
+                                      {amarrado.qtd_pc > 0 && ` ${amarrado.qtd_pc}pcs`}
+                                    </span>
+                                    {amarrado.romaneio && (
+                                      <span className="text-gray-400">Rom: {amarrado.romaneio}</span>
+                                    )}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
                           )}
-                          <div>Romaneio: {l.romaneio || '-'}</div>
-                          <div>Pedido: {l.pedido || '-'}</div>
-                          <div>Seq: {l.seq || '-'}</div>
                         </div>
                       </div>
                     </div>
@@ -1594,7 +1733,7 @@ const ApontamentosUsinagem = () => {
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
-              <button type="button" className="btn-outline" onClick={()=>setRackModalAberto(false)}>Cancelar</button>
+              <button type="button" className="btn-outline" onClick={()=>{setRackModalAberto(false); setAmarradosSelecionadosRack([]); setLotesExpandidos([])}}>Cancelar</button>
               <button type="button" className="btn-primary" onClick={salvarRackELotes}>Salvar</button>
             </div>
           </div>
@@ -1648,7 +1787,7 @@ const ApontamentosUsinagem = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="space-y-3 form-compact">
-          <div className="grid grid-cols-1 md:grid-cols-3 grid-compact">
+          <div className="grid grid-cols-1 md:grid-cols-5 grid-compact">
             <div>
               <label className="block label-sm font-medium text-gray-700 mb-1">
                 Operador
@@ -1782,9 +1921,7 @@ const ApontamentosUsinagem = () => {
                 readOnly
                 className="input-field input-field-sm bg-gray-100"
               />
-              {ferramentaAtual && (
-                <p className="text-[11px] text-gray-500 mt-1">Ferramenta: {ferramentaAtual}{pdfBasePath ? '' : ' • Defina o caminho em Configurações > Arquivos'}</p>
-              )}
+              {/* Mensagem de ferramenta removida para reduzir ruído visual */}
             </div>
 
             <div>
@@ -1910,18 +2047,6 @@ const ApontamentosUsinagem = () => {
                 readOnly
                 className="input-field input-field-sm bg-gray-100"
               />
-              <div className="mt-2">
-                <label className="block label-sm font-medium text-gray-700 mb-1">
-                  Comprimento do Acabado
-                </label>
-                <input
-                  type="text"
-                  name="comprimentoAcabado"
-                  value={formData.comprimentoAcabado}
-                  readOnly
-                  className="input-field input-field-sm bg-gray-100"
-                />
-              </div>
             </div>
             
             <div>
@@ -1941,7 +2066,7 @@ const ApontamentosUsinagem = () => {
                   <div className="flex gap-2">
                     <button
                       type="button"
-                      className="btn-primary flex-1 h-[38px] disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="btn-primary flex-1 h-9 disabled:opacity-60 disabled:cursor-not-allowed"
                       onClick={() => { if (!formData.ordemTrabalho) { alert('Selecione um Pedido/Seq antes de abrir o contador.'); return } setShowTimerModal(true) }}
                       disabled={!formData.ordemTrabalho}
                       title={formData.ordemTrabalho ? 'Abrir contador em tela grande' : 'Selecione um Pedido/Seq para habilitar'}
@@ -1969,7 +2094,7 @@ const ApontamentosUsinagem = () => {
                 <div className="flex">
                   <button
                     type="button"
-                    className="btn-secondary flex items-center justify-center gap-2 h-[38px] px-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="btn-secondary flex items-center justify-center gap-2 h-9 px-3 disabled:opacity-60 disabled:cursor-not-allowed"
                     onClick={() => {
                       if (!formData.ordemTrabalho) { alert('Selecione um Pedido/Seq antes de informar romaneio/lote.'); return }
                       setTmpRomaneio(formData.romaneioNumero || '')
@@ -1987,9 +2112,22 @@ const ApontamentosUsinagem = () => {
             </div>
 
             
+            {/* Linha extra dentro da mesma grid para reduzir espaçamento vertical */}
+            <div className="md:col-start-1">
+              <label className="block label-sm font-medium text-gray-700 mb-1">
+                Comprimento do Acabado
+              </label>
+              <input
+                type="text"
+                name="comprimentoAcabado"
+                value={formData.comprimentoAcabado}
+                readOnly
+                className="input-field input-field-sm bg-gray-100"
+              />
+            </div>
           </div>
           
-          <div>
+          <div className="md:col-span-5">
             <label className="block label-sm font-medium text-gray-700 mb-1">
               Observações
             </label>
@@ -2002,11 +2140,14 @@ const ApontamentosUsinagem = () => {
           </div>
 
           {/* Seção de Amarrados/Lotes Selecionados */}
-          {formData.lotesExternos && formData.lotesExternos.length > 0 && (
+          {((formData.lotesExternos && formData.lotesExternos.length > 0) || (formData.amarradosDetalhados && formData.amarradosDetalhados.length > 0)) && (
             <div className="col-span-full">
               <div className="flex items-center justify-between mb-2">
                 <label className="block label-sm font-medium text-gray-700">
-                  Amarrados/Lotes Selecionados ({formData.lotesExternos.length})
+                  {formData.amarradosDetalhados && formData.amarradosDetalhados.length > 0 
+                    ? `Amarrados Selecionados (${formData.amarradosDetalhados.length})`
+                    : `Lotes Selecionados (${formData.lotesExternos?.length || 0})`
+                  }
                 </label>
                 <div className="flex items-center gap-2">
                   {formData.rack_ou_pallet && (
@@ -2024,7 +2165,8 @@ const ApontamentosUsinagem = () => {
                           lotesExternos: [],
                           loteExterno: '',
                           rack_ou_pallet: '',
-                          rackOuPallet: ''
+                          rackOuPallet: '',
+                          amarradosDetalhados: []
                         }))
                       }
                     }}
@@ -2036,25 +2178,52 @@ const ApontamentosUsinagem = () => {
               </div>
               <div className="border rounded p-3 bg-gray-50 max-h-32 overflow-auto">
                 <div className="flex flex-wrap gap-2">
-                  {formData.lotesExternos.map((lote, idx) => (
-                    <div key={idx} className="flex items-center gap-1 bg-white border rounded px-2 py-1 text-sm">
-                      <span className="font-mono">{lote}</span>
-                      <button
-                        type="button"
-                        className="text-red-500 hover:text-red-700 ml-1"
-                        onClick={() => {
-                          setFormData(prev => ({
-                            ...prev,
-                            lotesExternos: prev.lotesExternos.filter((_, i) => i !== idx),
-                            loteExterno: prev.lotesExternos.length === 1 ? '' : prev.loteExterno
-                          }))
-                        }}
-                        title="Remover este lote"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
+                  {/* Mostra amarrados detalhados se existirem */}
+                  {formData.amarradosDetalhados && formData.amarradosDetalhados.length > 0 ? (
+                    formData.amarradosDetalhados.map((amarrado, idx) => (
+                      <div key={idx} className="flex items-center gap-1 bg-white border rounded px-2 py-1 text-sm">
+                        <span className="font-mono text-blue-600">{amarrado.codigo}</span>
+                        <span className="text-xs text-gray-500">({amarrado.lote})</span>
+                        {amarrado.qt_kg > 0 && (
+                          <span className="text-xs text-gray-400">{amarrado.qt_kg}kg</span>
+                        )}
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 ml-1"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              amarradosDetalhados: prev.amarradosDetalhados.filter((_, i) => i !== idx)
+                            }))
+                          }}
+                          title="Remover este amarrado"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  ) : (
+                    /* Fallback para lotes simples */
+                    formData.lotesExternos?.map((lote, idx) => (
+                      <div key={idx} className="flex items-center gap-1 bg-white border rounded px-2 py-1 text-sm">
+                        <span className="font-mono">{lote}</span>
+                        <button
+                          type="button"
+                          className="text-red-500 hover:text-red-700 ml-1"
+                          onClick={() => {
+                            setFormData(prev => ({
+                              ...prev,
+                              lotesExternos: prev.lotesExternos.filter((_, i) => i !== idx),
+                              loteExterno: prev.lotesExternos.length === 1 ? '' : prev.loteExterno
+                            }))
+                          }}
+                          title="Remover este lote"
+                        >
+                          ×
+                        </button>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
             </div>

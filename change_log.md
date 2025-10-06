@@ -1,5 +1,26 @@
 # Log de Alterações
 
+[05/10/2025 08:30] - [Frontend] - [Aprimoramento da aba "Previsão Trab." com turnos e data inicial] - [Windsurf]
+- Adicionada nova aba "Turnos" para configuração de turnos de trabalho (TA, TB, TC)
+- Implementado sistema de cadastro de horas de trabalho e horas de paradas por turno
+- Adicionado campo "Data Inicial da Previsão" para cálculos a partir de datas específicas
+- Cálculos de estimativas agora consideram horas úteis reais baseadas nos turnos ativos
+- Persistência dos dados de turnos no localStorage
+- Interface para ativar/desativar turnos e editar configurações em tempo real
+- Resumo automático de horas úteis por dia considerando todos os turnos ativos
+- Atualização automática dos cálculos de produtividade (pcs/dia) baseada nas horas úteis configuradas
+
+[05/10/2025 08:20] - [Frontend] - [Implementação da nova aba "Previsão Trab." para estimativas de tempo] - [Windsurf]
+- Criado componente PrevisaoTrabalho.jsx com três abas principais:
+  - Carteira de Pedidos: estimativas automáticas baseadas em dados históricos
+  - Estimativa Manual: ferramenta para calcular tempo de novos pedidos
+  - Histórico Produtividade: análise de produtividade por produto
+- Implementados cálculos de produtividade (pcs/hora, pcs/dia) baseados em apontamentos existentes
+- Adicionado sistema de confiabilidade das estimativas (Alta/Média/Baixa) baseado no número de registros
+- Incluída nova rota no menu lateral posicionada abaixo de "Relatórios"
+- Atualizada documentação em specs.md com as novas funcionalidades
+- Interface responsiva com filtros e resumos estatísticos
+
 [04/10/2025 14:52] - [Projeto] - [Limpeza e organização completa do repositório] - [Windsurf]
 - Criada estrutura organizada de pastas: docs/, docs/referencia/, scripts/
 - Consolidados schemas SQL no data_schema.sql (fonte única)
