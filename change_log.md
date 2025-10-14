@@ -1,5 +1,43 @@
 # Log de Alterações
 
+[14/10/2025 10:56] - [Frontend] - [Logo sem fundo no modo recolhido do Sidebar] - [Windsurf]
+- Copiado LogoTecnoRedeSocial-SemFundo.png para frontend/src/assets
+- Substituído por versão sem fundo do logo
+- Tamanho aumentado para 56x56px (h-14 w-14)
+- Removido padding e bordas arredondadas para visual mais limpo
+- Logo transparente integra melhor com fundo azul do sidebar
+
+[14/10/2025 10:52] - [Frontend] - [Atualização do logo no modo recolhido do Sidebar] - [Windsurf]
+- Testado LogoTecnoRedeSocial.png
+- Tamanho 48x48px (h-12 w-12)
+- Com bordas arredondadas
+
+[14/10/2025 10:50] - [Frontend] - [Ajuste do logo no modo recolhido do Sidebar] - [Windsurf]
+- Primeira tentativa com LogoTecnoSimples.png
+- Testado tamanho 40x40px
+- Ajustes de centralização
+
+[14/10/2025 10:46] - [Frontend] - [Adicionado logo e nome da Tecnoperfil no Sidebar] - [Windsurf]
+- Copiado LogoTecno.png para frontend/src/assets
+- Adicionado logo da Tecnoperfil no topo do Sidebar
+- Logo com fundo branco e sombra para destaque
+- Nome "Tecnoperfil" em negrito abaixo do logo
+- Subtítulo "Controle de Usinagem" em texto menor
+- Modo expandido: mostra logo completo, nome e subtítulo
+- Visual profissional e branded
+
+[14/10/2025 10:44] - [Frontend] - [Ajuste do logo na tela de login] - [Windsurf]
+- Removido fundo azul de trás do logo
+- Logo agora aparece diretamente sobre o card branco
+- Aumentado tamanho do logo para h-24 (96px)
+- Visual mais limpo e moderno
+
+[14/10/2025 10:42] - [Frontend] - [Adicionado logo na tela de login] - [Windsurf]
+- Copiado LogoDaniloBranco.png para frontend/src/assets
+- Adicionado logo na tela de login
+- Melhorado design da tela de login com gradiente azul
+- Logo centralizado acima do título
+
 [14/10/2025 09:30] - [Database/Frontend] - [Sistema de Auditoria e Histórico de Ações] - [Windsurf]
 - Criada tabela historico_acoes no Supabase para auditoria completa
 - Campos: usuario_id, usuario_nome, usuario_email, acao, modulo, descricao, dados_anteriores, dados_novos, ip_address, user_agent

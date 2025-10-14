@@ -2,9 +2,12 @@ import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { FaCog, FaChartBar, FaClipboardList, FaTools, FaFileAlt, FaTachometerAlt, FaBars, FaTimes, FaClock } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
+import logoTecno from '../assets/LogoTecno.png'
+import logoTecnoSemFundo from '../assets/LogoTecnoRedeSocial-SemFundo.png'
 
 const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
   const [menuRecolhido, setMenuRecolhido] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
   const { user } = useAuth()
 
   const allMenuItems = [
@@ -48,12 +51,46 @@ const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
           `relative ${menuRecolhido ? 'w-16' : 'w-64'} transition-all duration-300 ease-in-out`
         )}`}
     >
-      <div className="flex items-center justify-between px-2">
+      {/* Logo e Nome da Empresa */}
+      <div className="flex flex-col items-center px-2 mb-4">
         {(!menuRecolhido || isMobile) && (
-          <span className="text-xl font-extrabold truncate">
-            {isMobile ? 'Menu' : 'Usinagem App'}
-          </span>
+          <>
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(true)}
+              className="bg-white rounded-lg p-3 mb-3 shadow-lg focus:outline-none focus:ring-2 focus:ring-blue-300"
+              aria-label="Visualizar logo"
+            >
+              <img 
+                src={logoTecno} 
+                alt="Tecnoperfil" 
+                className="h-12 w-auto"
+              />
+            </button>
+            <div className="text-center">
+              <h2 className="text-lg font-bold text-white">Tecnoperfil</h2>
+              <p className="text-xs text-blue-200">Controle de Usinagem</p>
+            </div>
+          </>
         )}
+        {menuRecolhido && !isMobile && (
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-blue-300 rounded"
+            aria-label="Visualizar logo"
+          >
+            <img 
+              src={logoTecnoSemFundo} 
+              alt="Tecnoperfil" 
+              className="h-14 w-14 object-contain"
+            />
+          </button>
+        )}
+      </div>
+      
+      {/* Botão de Toggle */}
+      <div className="flex items-center justify-end px-2 mb-4">
         <button 
           onClick={toggleMenu} 
           className="p-2 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 transition-colors"
@@ -85,6 +122,29 @@ const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
           </NavLink>
         ))}
       </nav>
+
+      {previewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/60" onClick={() => setPreviewOpen(false)} />
+          {/* Conteúdo */}
+          <div className="relative z-10 max-w-[90vw] max-h-[90vh] p-4">
+            <img
+              src={logoTecnoSemFundo}
+              alt="Logo Tecnoperfil"
+              className="max-w-[80vw] max-h-[80vh] object-contain rounded-lg shadow-2xl"
+            />
+            <button
+              type="button"
+              onClick={() => setPreviewOpen(false)}
+              className="absolute -top-2 -right-2 bg-white text-blue-800 rounded-full w-8 h-8 shadow hover:bg-gray-100"
+              aria-label="Fechar"
+            >
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
