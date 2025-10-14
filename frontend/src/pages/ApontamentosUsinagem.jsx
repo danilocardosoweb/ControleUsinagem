@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext' // Importando o contexto de autenticação
 import { useSupabase } from '../hooks/useSupabase'
-import { FaSearch, FaFilePdf, FaBroom, FaListUl, FaPlus, FaCopy } from 'react-icons/fa'
+import supabaseService from '../services/SupabaseService'
+import { FaSearch, FaFilePdf, FaBroom, FaListUl, FaPlus, FaCopy, FaStar } from 'react-icons/fa'
 import { getConfiguracaoImpressoras, getCaminhoImpressora, isImpressoraAtiva } from '../utils/impressoras'
 
 // Constrói URL HTTP para abrir PDF via backend, codificando caminho base e arquivo
@@ -82,6 +83,30 @@ const ApontamentosUsinagem = () => {
   // Lotes importados (Dados • Lotes) via Supabase
   const { items: lotesDB } = useSupabase('lotes')
   
+  // Filtro de prioridades
+  const [filtrarPrioridades, setFiltrarPrioridades] = useState(false)
+  const [pedidosPrioritarios, setPedidosPrioritarios] = useState(new Set())
+  
+  // Carregar prioridades do PCP
+  useEffect(() => {
+    carregarPrioridades()
+  }, [])
+
+  const carregarPrioridades = async () => {
+    try {
+      const prioridadesData = await supabaseService.getAll('pcp_prioridades')
+      const setPrioritarios = new Set(
+        (prioridadesData || [])
+          .map(p => p.pedido_numero)
+          .filter(Boolean)
+      )
+      setPedidosPrioritarios(setPrioritarios)
+    } catch (error) {
+      console.warn('Não foi possível carregar prioridades do PCP:', error)
+      setPedidosPrioritarios(new Set())
+    }
+  }
+
   const STORAGE_KEY = 'apont_usinagem_draft'
   const [formData, setFormData] = useState({
     operador: user ? user.nome : '',
@@ -1041,7 +1066,7 @@ const ApontamentosUsinagem = () => {
   }
 
   // Ordens de trabalho derivadas da Carteira (pedidos importados)
-  const ordensTrabalho = pedidosDB.map(p => {
+  const ordensTrabalhoTodas = pedidosDB.map(p => {
     const comp = extrairComprimentoAcabado(p.produto)
     const ferramenta = extrairFerramenta(p.produto)
     return {
@@ -1060,6 +1085,11 @@ const ApontamentosUsinagem = () => {
       nroOp: p.nro_op || ''
     }
   })
+  
+  // Aplicar filtro de prioridades se ativo
+  const ordensTrabalho = filtrarPrioridades 
+    ? ordensTrabalhoTodas.filter(o => pedidosPrioritarios.has(o.id))
+    : ordensTrabalhoTodas
 
   // Caminhos base para PDFs salvos em Configurações
   const pdfBasePath = typeof window !== 'undefined' ? (localStorage.getItem('pdfBasePath') || '') : ''
@@ -2152,9 +2182,24 @@ const ApontamentosUsinagem = () => {
             </div>
             
             <div>
-              <label className="block label-sm font-medium text-gray-700 mb-1">
-                Pedido/Seq
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block label-sm font-medium text-gray-700">
+                  Pedido/Seq
+                </label>
+                <button
+                  type="button"
+                  onClick={() => setFiltrarPrioridades(!filtrarPrioridades)}
+                  className={`flex items-center gap-1 px-2 py-0.5 text-xs rounded transition-colors ${
+                    filtrarPrioridades 
+                      ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200' 
+                      : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                  }`}
+                  title={filtrarPrioridades ? 'Mostrando apenas prioritários' : 'Mostrar apenas prioritários'}
+                >
+                  <FaStar className={filtrarPrioridades ? 'text-yellow-500' : 'text-gray-400'} />
+                  <span>{filtrarPrioridades ? 'Prioritários' : 'Todos'}</span>
+                </button>
+              </div>
               <div className="flex items-center gap-2">
                 <select
                   name="ordemTrabalho"

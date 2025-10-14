@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
-import { FaCog, FaChartBar, FaClipboardList, FaTools, FaFileAlt, FaTachometerAlt, FaBars, FaTimes, FaClock } from 'react-icons/fa'
+import { FaCog, FaChartBar, FaClipboardList, FaTools, FaFileAlt, FaTachometerAlt, FaBars, FaTimes, FaClock, FaTasks } from 'react-icons/fa'
 import { useAuth } from '../contexts/AuthContext'
 import logoTecno from '../assets/LogoTecno.png'
 import logoTecnoSemFundo from '../assets/LogoTecnoRedeSocial-SemFundo.png'
@@ -17,6 +17,7 @@ const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
     { path: '/apontamentos-paradas', name: 'Apontamentos de Paradas', icon: <FaTools />, roles: ['admin', 'supervisor', 'operador'] },
     { path: '/relatorios', name: 'Relatórios', icon: <FaChartBar />, roles: ['admin', 'supervisor', 'operador'] },
     { path: '/previsao-trabalho', name: 'Previsão Trab.', icon: <FaClock />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/pcp', name: 'PCP', icon: <FaTasks />, roles: ['admin', 'supervisor'] },
     { path: '/configuracoes', name: 'Configurações', icon: <FaCog />, roles: ['admin'] }, // ✅ Apenas admin
   ]
 

@@ -28,6 +28,35 @@ class SupabaseService {
   }
 
   /**
+   * Busca itens por um conjunto de valores (operador IN)
+   * @param {string} tableName - Nome da tabela
+   * @param {string} fieldName - Nome do campo
+   * @param {any[]} values - Array de valores
+   * @returns {Promise<Array>} Itens encontrados
+   */
+  async getByIn(tableName, fieldName, values) {
+    await this.init();
+
+    try {
+      if (!Array.isArray(values) || values.length === 0) return []
+      const { data, error } = await this.supabase
+        .from(tableName)
+        .select('*')
+        .in(fieldName, values);
+
+      if (error) {
+        console.error(`Erro ao buscar por IN em ${tableName}:`, error);
+        return Promise.reject(error);
+      }
+
+      return data || [];
+    } catch (error) {
+      console.error(`Erro ao buscar por IN em ${tableName}:`, error);
+      return Promise.reject(error);
+    }
+  }
+
+  /**
    * Inicializa o cliente Supabase
    * @returns {Promise} Promise que resolve quando o cliente estiver pronto
    */

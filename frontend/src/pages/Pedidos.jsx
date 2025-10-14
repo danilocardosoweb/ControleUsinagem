@@ -1,9 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { FaFilter, FaSearch, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaTrash, FaDatabase, FaSync, FaList } from 'react-icons/fa'
+import { FaFilter, FaSearch, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaTrash, FaDatabase, FaSync, FaList, FaStar } from 'react-icons/fa'
 import axios from 'axios'
 import * as XLSX from 'xlsx'
 import { useSupabase } from '../hooks/useSupabase'
+import supabaseService from '../services/SupabaseService'
 import { useAuth } from '../contexts/AuthContext'
 
 const Pedidos = () => {
@@ -18,6 +19,9 @@ const Pedidos = () => {
   } = useSupabase('pedidos')
   // Apontamentos para consolidar quantidade apontada por pedido
   const { items: apontamentosDB } = useSupabase('apontamentos')
+  // Prioridades do PCP
+  const [prioridades, setPrioridades] = useState([])
+  const [pedidosPrioritarios, setPedidosPrioritarios] = useState(new Set())
   // Usuário logado
   const { user } = useAuth()
   
@@ -37,7 +41,8 @@ const Pedidos = () => {
     produto: '',
     status: '',
     ferramenta: '',
-    comprimento: ''
+    comprimento: '',
+    prioridade: 'todos' // 'todos' | 'prioritarios'
   })
   
   // Estado para ordenação
@@ -57,12 +62,43 @@ const Pedidos = () => {
   const [arquivo, setArquivo] = useState(null)
   
   
-  // Removido o carregamento automático de dados de exemplo
+  // Carregar prioridades do PCP
+  useEffect(() => {
+    carregarPrioridades()
+  }, [])
+
+  const carregarPrioridades = async () => {
+    try {
+      const prioridadesData = await supabaseService.getAll('pcp_prioridades')
+      setPrioridades(prioridadesData || [])
+      // Criar Set com pedido_seq dos itens prioritários
+      const setPrioritarios = new Set(
+        (prioridadesData || [])
+          .map(p => p.pedido_numero)
+          .filter(Boolean)
+      )
+      setPedidosPrioritarios(setPrioritarios)
+    } catch (error) {
+      console.warn('Não foi possível carregar prioridades do PCP:', error)
+      setPrioridades([])
+      setPedidosPrioritarios(new Set())
+    }
+  }
+
+  // Verificar se um pedido é prioritário
+  const isPrioritario = (pedidoSeq) => {
+    return pedidosPrioritarios.has(pedidoSeq)
+  }
+
+  // Obter dados da prioridade de um pedido
+  const getPrioridadeDoPedido = (pedidoSeq) => {
+    return prioridades.find(p => p.pedido_numero === pedidoSeq)
+  }
   
   // Aplicar filtros quando os filtros mudarem ou quando os pedidos do banco de dados mudarem
   useEffect(() => {
     aplicarFiltros()
-  }, [filtros, pedidosDB])
+  }, [filtros, pedidosDB, pedidosPrioritarios])
   
   // Removida a função de dados de exemplo
   
@@ -360,6 +396,11 @@ const Pedidos = () => {
     // Filtro por status (usar status calculado e mapeado para chave)
     if (filtros.status) {
       resultado = resultado.filter(p => statusToKey(calcularStatus(p)) === filtros.status)
+    }
+    
+    // Filtro por prioridade
+    if (filtros.prioridade === 'prioritarios') {
+      resultado = resultado.filter(p => isPrioritario(p.pedido_seq))
     }
     
     // Aplicar ordenação
@@ -941,7 +982,8 @@ const Pedidos = () => {
       produto: '',
       status: '',
       ferramenta: '',
-      comprimento: ''
+      comprimento: '',
+      prioridade: 'todos'
     })
   }
   
@@ -997,7 +1039,7 @@ const Pedidos = () => {
       <div className="bg-white rounded-lg shadow p-3 mb-4">
         <h2 className="text-base font-semibold text-gray-700 mb-2">Filtros</h2>
         
-        {/* Grid: 1 linha em md+ */}
+        {/* Grid: 2 linhas em md+ */}
         <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Cliente</label>
@@ -1035,6 +1077,19 @@ const Pedidos = () => {
               <option value="pendente">Pendente</option>
               <option value="em_producao">Em Produção</option>
               <option value="concluido">Concluído</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Prioridade</label>
+            <select
+              name="prioridade"
+              value={filtros.prioridade}
+              onChange={handleFiltroChange}
+              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            >
+              <option value="todos">Todos</option>
+              <option value="prioritarios">Apenas Prioritários</option>
             </select>
           </div>
 
@@ -1223,13 +1278,21 @@ const Pedidos = () => {
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {pedidosPaginados.length > 0 ? (
-                pedidosPaginados.map((pedido) => (
-                  <tr key={pedido.id} className="hover:bg-gray-50">
+                pedidosPaginados.map((pedido) => {
+                  const ehPrioritario = isPrioritario(pedido.pedido_seq)
+                  const dadosPrioridade = ehPrioritario ? getPrioridadeDoPedido(pedido.pedido_seq) : null
+                  return (
+                  <tr key={pedido.id} className={`hover:bg-gray-50 ${ehPrioritario ? 'bg-yellow-50 border-l-4 border-l-yellow-500' : ''}`}>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {pedido.nro_op}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                      {pedido.pedido_seq}
+                      <div className="flex items-center gap-2">
+                        {ehPrioritario && (
+                          <FaStar className="text-yellow-500" title={`Prioridade #${dadosPrioridade?.prioridade || '-'}`} />
+                        )}
+                        <span>{pedido.pedido_seq}</span>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                       {pedido.pedido_cliente}
@@ -1300,7 +1363,8 @@ const Pedidos = () => {
                       </button>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               ) : (
                 <tr>
                   <td colSpan="17" className="px-6 py-4 text-center text-sm text-gray-500">

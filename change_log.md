@@ -1,5 +1,89 @@
 # Log de Alterações
 
+[14/10/2025 12:24] - [Frontend] - [Filtro de prioridades em Apontamentos de Usinagem] - [Windsurf]
+- Adicionado filtro minimalista no campo "Pedido/Seq" dos Apontamentos
+- Botão toggle "Todos" / "Prioritários" ao lado do label
+- Ícone de estrela (FaStar) muda de cor conforme estado
+- Estados visuais:
+  - Inativo: fundo cinza, estrela cinza, texto "Todos"
+  - Ativo: fundo amarelo, estrela amarela, texto "Prioritários"
+- Carrega prioridades do PCP via SupabaseService
+- Filtra select de pedidos para mostrar apenas prioritários quando ativo
+- Integração com tabela pcp_prioridades
+- UX: toggle rápido sem necessidade de confirmação
+
+[14/10/2025 12:17] - [Frontend] - [Autocomplete no campo Pedido Cliente do PCP] - [Windsurf]
+- Implementado autocomplete no campo "Pedido Cliente" do PCP
+- Sugestões aparecem ao digitar (mínimo 2 caracteres)
+- Dropdown com até 10 sugestões de Pedidos Cliente únicos
+- Cada sugestão mostra: Pedido Cliente + Nome do Cliente
+- Busca automática ao selecionar uma sugestão
+- Estados: sugestoesPedidoCliente, mostrarSugestoes
+- Funções: handlePedidoClienteChange(), selecionarSugestao()
+- Estilo: dropdown com hover, scroll automático, z-index adequado
+- UX melhorada: onBlur com delay para permitir clique na sugestão
+
+[14/10/2025 12:16] - [Frontend] - [Marcação de itens prioritários em Pedidos e Produtos] - [Windsurf]
+- Adicionado carregamento de prioridades do PCP na página Pedidos
+- Filtro "Prioridade" com opções: "Todos" e "Apenas Prioritários"
+- Marcação visual de itens prioritários na tabela:
+  - Fundo amarelo claro (bg-yellow-50)
+  - Borda esquerda amarela destacada (border-l-4 border-l-yellow-500)
+  - Ícone de estrela (FaStar) ao lado do número do pedido
+  - Tooltip mostrando o número da prioridade
+- Função isPrioritario() para verificar se pedido está no PCP
+- Função getPrioridadeDoPedido() para obter dados da prioridade
+- Integração com tabela pcp_prioridades via SupabaseService
+
+[14/10/2025 12:05] - [Frontend/Database] - [Coluna Apontado no PCP] - [Windsurf]
+- Adicionada coluna "Apontado" na tabela de prioridades do PCP
+- Mostra quantidade apontada e percentual em relação à quantidade total
+- Busca apontamentos por pedido_seq e ordem_trabalho
+- Método getByIn() adicionado ao SupabaseService
+- Recálculo automático ao carregar/atualizar prioridades
+- Removido campo "Sequência" completamente (UI, DB e payloads)
+- Modo grupo permite definir Data de Entrega e Status
+
+[14/10/2025 11:59] - [Frontend] - [Seleção por Pedido Cliente no PCP] - [Windsurf]
+- Modo de seleção: Individual ou Por Pedido Cliente (grupo)
+- Busca por Pedido Cliente com listagem de itens
+- Seleção múltipla com checkboxes
+- Botão "Selecionar todos / Limpar seleção"
+- Criação em lote de prioridades
+- Contador de itens selecionados
+- Auditoria para criação em lote
+
+[14/10/2025 11:53] - [Frontend] - [Correções e melhorias no PCP] - [Windsurf]
+- Corrigido import do SupabaseService (era SupabaseContext)
+- Corrigidos nomes dos campos da tabela pedidos:
+  - numero_pedido → pedido_seq
+  - codigo_perfil → produto
+  - quantidade → qtd_pedido
+- Melhorado carregamento de dados com Promise.all
+- Filtro de pedidos ativos (com saldo a produzir)
+- Select melhorado com informações completas do pedido
+- Indicador de loading no select de pedidos
+- Contador de pedidos disponíveis
+- Integração com AuditoriaService para registrar ações
+- Logs detalhados no console para debug
+- Melhor tratamento de erros com mensagens específicas
+
+[14/10/2025 11:47] - [Frontend/Database] - [Nova aba PCP - Planejamento e Controle de Produção] - [Windsurf]
+- Criada página PCP.jsx para gerenciar prioridades de produção
+- Funcionalidades: adicionar, editar, excluir e reordenar prioridades
+- Interface com drag-and-drop visual (setas cima/baixo)
+- Campos: pedido, sequência, produto, quantidade, data entrega, status, observações
+- Status: pendente, em_producao, concluido, atrasado
+- Cores de prioridade: vermelho (1-3), laranja (4-6), verde (7+)
+- Modal de edição inline
+- Tabela pcp_prioridades criada no Supabase
+- Índices otimizados para consultas
+- Políticas RLS configuradas
+- Trigger para atualizar campo atualizado_em
+- Rota /pcp adicionada no App.jsx
+- Item PCP adicionado no Sidebar (ícone FaTasks)
+- Acesso: admin e supervisor
+
 [14/10/2025 10:56] - [Frontend] - [Logo sem fundo no modo recolhido do Sidebar] - [Windsurf]
 - Copiado LogoTecnoRedeSocial-SemFundo.png para frontend/src/assets
 - Substituído por versão sem fundo do logo
