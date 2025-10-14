@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useAuth } from '../contexts/AuthContext' // Importando o contexto de autenticação
 import { useSupabase } from '../hooks/useSupabase'
 import { FaSearch, FaFilePdf, FaBroom, FaListUl, FaPlus, FaCopy } from 'react-icons/fa'
+import { getConfiguracaoImpressoras, getCaminhoImpressora, isImpressoraAtiva } from '../utils/impressoras'
 
 // Constrói URL HTTP para abrir PDF via backend, codificando caminho base e arquivo
 const buildHttpPdfUrl = (basePath, fileName) => {
@@ -77,7 +78,7 @@ const tryOpenInNewTab = async (url, fallbackPathText) => {
 const ApontamentosUsinagem = () => {
   const { user } = useAuth() // Obtendo o usuário logado
   const { items: pedidosDB, loading: carregandoPedidos } = useSupabase('pedidos')
-  const { items: apontamentosDB, addItem: addApont } = useSupabase('apontamentos')
+  const { items: apontamentosDB, addItem: addApont, loadItems: recarregarApontamentos } = useSupabase('apontamentos')
   // Lotes importados (Dados • Lotes) via Supabase
   const { items: lotesDB } = useSupabase('lotes')
   
@@ -149,8 +150,175 @@ const ApontamentosUsinagem = () => {
     return base.replace(/[^A-Za-z0-9_-]/g, '-')
   }
 
+  // Cria etiqueta térmica compacta 100x45mm para impressora térmica
+  const imprimirEtiquetaTermica = (lote, quantidade, rackOuPalletValor, dureza) => {
+    // Verificar configuração da impressora térmica
+    const impressoraTermica = getConfiguracaoImpressoras().termica
+    
+    if (!isImpressoraAtiva('termica')) {
+      alert(`Impressora térmica não está configurada ou ativa.\nVá em Configurações > Impressoras para configurar.`)
+      return
+    }
+    
+    const caminhoImpressora = getCaminhoImpressora('termica')
+    console.log(`🖨️ Imprimindo etiqueta térmica via: ${impressoraTermica.nome} (${caminhoImpressora})`)
+    
+    const cliente = formData.cliente || ''
+    const pedidoSeq = formData.ordemTrabalho || ''
+    const perfil = formData.codigoPerfil || ''
+    const comprimento = formData.comprimentoAcabado || ''
+    const qtde = quantidade || ''
+    const pallet = rackOuPalletValor || ''
+    const durezaVal = dureza || 'N/A'
+    
+    // Extrai ferramenta do código do produto
+    const extrairFerramenta = (prod) => {
+      if (!prod) return ''
+      const s = String(prod).toUpperCase()
+      const re3 = /^([A-Z]{3})([A-Z0-9]+)/
+      const re2 = /^([A-Z]{2})([A-Z0-9]+)/
+      let letras = '', resto = '', qtdDigitos = 0
+      let m = s.match(re3)
+      if (m) { letras = m[1]; resto = m[2]; qtdDigitos = 3 }
+      else { m = s.match(re2); if (m) { letras = m[1]; resto = m[2]; qtdDigitos = 4 } else return '' }
+      let nums = ''
+      for (const ch of resto) {
+        if (/[0-9]/.test(ch)) nums += ch
+        else if (ch === 'O') nums += '0'
+        if (nums.length === qtdDigitos) break
+      }
+      if (nums.length < qtdDigitos) nums = nums.padEnd(qtdDigitos, '0')
+      return `${letras}-${nums}`
+    }
+    
+    const ferramenta = extrairFerramenta(perfil)
+
+    const html = `<!DOCTYPE html>
+    <html><head><meta charset="utf-8" />
+    <style>
+      @page { size: 100mm 45mm; margin: 1mm; }
+      body { 
+        font-family: Arial, sans-serif; 
+        color: #000; 
+        margin: 0; 
+        padding: 1mm;
+        font-size: 13pt;
+        line-height: 1.3;
+        -webkit-print-color-adjust: exact; 
+        print-color-adjust: exact;
+      }
+      .header { 
+        background: #000; 
+        color: #fff; 
+        text-align: center; 
+        font-weight: bold; 
+        font-size: 14pt;
+        padding: 1.5mm 0;
+        margin-bottom: 1.5mm;
+      }
+      .content {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1mm 3mm;
+        margin-bottom: 1.5mm;
+      }
+      .info-item {
+        margin-bottom: 1mm;
+      }
+      .label { 
+        font-size: 10pt;
+        color: #666;
+        display: block;
+        margin-bottom: 0.3mm;
+      }
+      .value { 
+        font-weight: bold;
+        font-size: 14pt;
+        color: #000;
+        display: block;
+      }
+      .barcode-section {
+        text-align: center;
+        margin-top: 1mm;
+        padding-top: 1mm;
+        border-top: 1px solid #ccc;
+      }
+      .barcode-text {
+        font-family: 'Libre Barcode 128', 'Courier New', monospace;
+        font-size: 32pt;
+        letter-spacing: -1px;
+        line-height: 1;
+        font-weight: bold;
+      }
+    </style>
+    </head><body>
+      <div class="header">TECNOPERFIL ALUMÍNIO</div>
+      <div class="content">
+        <div class="col-left">
+          <div class="info-item">
+            <span class="label">Cliente:</span>
+            <span class="value">${cliente}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Pedido:</span>
+            <span class="value">${pedidoSeq}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Perfil:</span>
+            <span class="value">${ferramenta}</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Dureza:</span>
+            <span class="value">${durezaVal}</span>
+          </div>
+        </div>
+        <div class="col-right">
+          <div class="info-item">
+            <span class="label">Comprimento:</span>
+            <span class="value">${comprimento} mm</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Turno:</span>
+            <span class="value">TB</span>
+          </div>
+          <div class="info-item">
+            <span class="label">Quantidade:</span>
+            <span class="value">${qtde} PC</span>
+          </div>
+        </div>
+      </div>
+      <div class="barcode-section">
+        <div class="barcode-text">${lote.replace(/-/g, '')}</div>
+      </div>
+    </body></html>`
+
+    // Criar blob HTML para impressão direta
+    const blob = new Blob([html], { type: 'text/html' })
+    const url = URL.createObjectURL(blob)
+    const printWindow = window.open(url, '_blank', 'width=400,height=200')
+    if (printWindow) {
+      printWindow.onload = () => {
+        setTimeout(() => {
+          printWindow.print()
+        }, 250)
+      }
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+  }
+
   // Cria conteúdo HTML estilizado para o formulário e dispara download .doc
-  const imprimirDocumentoIdentificacao = (lote, quantidade, rackOuPalletValor) => {
+  const imprimirDocumentoIdentificacao = (lote, quantidade, rackOuPalletValor, dureza) => {
+    // Verificar configuração da impressora comum
+    const impressoraComum = getConfiguracaoImpressoras().comum
+    
+    if (!isImpressoraAtiva('comum')) {
+      alert(`Impressora comum não está configurada ou ativa.\nVá em Configurações > Impressoras para configurar.`)
+      return
+    }
+    
+    const caminhoImpressora = getCaminhoImpressora('comum')
+    console.log(`🖨️ Imprimindo documento via: ${impressoraComum.nome} (${caminhoImpressora})`)
+    
     const cliente = formData.cliente || ''
     const item = formData.codigoPerfil || ''
     const itemCli = formData.perfilLongo || '' // se existir no futuro 'item_do_cliente', trocar aqui
@@ -159,64 +327,148 @@ const ApontamentosUsinagem = () => {
     const pedidoCli = formData.pedidoCliente || ''
     const qtde = quantidade || ''
     const pallet = rackOuPalletValor || ''
+    const durezaVal = dureza || ''
 
     const html = `<!DOCTYPE html>
     <html><head><meta charset="utf-8" />
     <style>
-      @page { size: A4 landscape; margin: 12mm; }
-      body { font-family: Arial, Helvetica, sans-serif; color: #000; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      .header { text-align: center; margin-bottom: 10mm; }
-      .logo { height: 18mm; object-fit: contain; }
-      .titulo { font-size: 26pt; font-weight: 800; }
-      .sub { margin-top: 4mm; font-size: 12pt; font-weight: 700; }
-      table { width: 100%; border-collapse: separate; border-spacing: 0 12mm; }
-      th, td { vertical-align: bottom; }
-      .label { font-weight: 800; font-size: 18pt; white-space: nowrap; padding-right: 6mm; }
-      .valor { border-bottom: 3px solid #000; font-size: 18pt; padding: 0 3mm; height: 14mm; }
-      .dupla td { width: 50%; }
-      .lote { font-weight: 700; font-size: 14pt; }
+      @page { 
+        size: A4 landscape; 
+        margin: 12.7mm; /* Margens estreitas padrão */
+      }
+      @media print {
+        @page {
+          size: landscape;
+          margin: 12.7mm;
+        }
+        body {
+          margin: 0;
+        }
+      }
+      body { 
+        font-family: 'Segoe UI', Arial, sans-serif; 
+        color: #000; 
+        margin: 0;
+        padding: 10mm;
+        background: #fff;
+        -webkit-print-color-adjust: exact; 
+        print-color-adjust: exact; 
+      }
+      .container {
+        max-width: 100%;
+        margin: 0 auto;
+        background: #fff;
+        border: 2px solid #000;
+        padding: 8mm;
+      }
+      .header { 
+        text-align: center; 
+        margin-bottom: 8mm;
+        border-bottom: 3px solid #000;
+        padding-bottom: 4mm;
+      }
+      .titulo { 
+        font-size: 24pt; 
+        font-weight: 800; 
+        text-transform: uppercase;
+        letter-spacing: 1pt;
+        margin: 0;
+      }
+      .sub { 
+        margin-top: 4mm; 
+        font-size: 11pt; 
+        font-weight: 600; 
+        color: #333;
+      }
+      .form-grid { 
+        display: grid;
+        grid-template-columns: 25% 75%;
+        gap: 5mm 0;
+        margin-bottom: 5mm;
+      }
+      .form-row {
+        display: contents;
+      }
+      .form-row.dupla {
+        display: grid;
+        grid-column: 1 / -1;
+        grid-template-columns: 12.5% 37.5% 12.5% 37.5%;
+        gap: 0 4mm;
+        align-items: end;
+      }
+      .label { 
+        font-weight: 700; 
+        font-size: 14pt; 
+        text-transform: uppercase;
+        letter-spacing: 0.5pt;
+        color: #000;
+        padding-right: 4mm;
+        align-self: end;
+        padding-bottom: 2mm;
+      }
+      .valor { 
+        border-bottom: 2px solid #000; 
+        font-size: 16pt; 
+        font-weight: 600;
+        padding: 2mm 4mm; 
+        min-height: 8mm; 
+        text-align: center;
+        background: #f9f9f9;
+        position: relative;
+      }
+      .valor:empty::after {
+        content: '';
+        display: inline-block;
+        width: 100%;
+        height: 8mm;
+      }
     </style>
     </head><body>
-      <div class="header">
-        <div class="titulo">Formulário de Identificação do Material Cortado</div>
-        <div class="sub">Lote: ${lote}</div>
+      <div class="container">
+        <div class="header">
+          <div class="titulo">Formulário de Identificação do Material Cortado</div>
+          <div class="sub">Lote: ${lote}</div>
+        </div>
+        
+        <div class="form-grid">
+          <div class="form-row">
+            <div class="label">Cliente:</div>
+            <div class="valor">${cliente}</div>
+          </div>
+          
+          <div class="form-row">
+            <div class="label">Item:</div>
+            <div class="valor">${item}</div>
+          </div>
+          
+          <div class="form-row">
+            <div class="label">Medida:</div>
+            <div class="valor">${medida}</div>
+          </div>
+          
+          <div class="form-row">
+            <div class="label">Pedido Tecno:</div>
+            <div class="valor">${pedidoTecno}</div>
+          </div>
+          
+          <div class="form-row dupla">
+            <div class="label">Qtde:</div>
+            <div class="valor">${qtde}</div>
+            <div class="label">Palet:</div>
+            <div class="valor">${pallet}</div>
+          </div>
+          
+          <div class="form-row">
+            <div class="label">Pedido Cli:</div>
+            <div class="valor">${pedidoCli}</div>
+          </div>
+          
+          <div class="form-row">
+            <div class="label">Dureza:</div>
+            <div class="valor">${durezaVal}</div>
+          </div>
+        </div>
       </div>
-      <table>
-        <tr>
-          <td class="label">CLIENTE:</td>
-          <td class="valor">${cliente}</td>
-        </tr>
-        <tr>
-          <td class="label">ITEM:</td>
-          <td class="valor">${item}</td>
-        </tr>
-        <tr>
-          <td class="label">ITEM CLI:</td>
-          <td class="valor">${itemCli}</td>
-        </tr>
-        <tr>
-          <td class="label">MEDIDA:</td>
-          <td class="valor">${medida}</td>
-        </tr>
-        <tr>
-          <td class="label">PEDIDO TECNO:</td>
-          <td class="valor">${pedidoTecno}</td>
-        </tr>
-        <tr class="dupla">
-          <td>
-            <span class="label">QTDE:</span>
-            <span class="valor" style="display:inline-block; min-width:60mm;">${qtde}</span>
-          </td>
-          <td>
-            <span class="label">PALET:</span>
-            <span class="valor" style="display:inline-block; min-width:60mm;">${pallet}</span>
-          </td>
-        </tr>
-        <tr>
-          <td class="label">PEDIDO CLI:</td>
-          <td class="valor">${pedidoCli}</td>
-        </tr>
-      </table>
     </body></html>`
 
     // Criar blob .doc (Word abre HTML com extensão .doc)
@@ -265,6 +517,8 @@ const ApontamentosUsinagem = () => {
   const [rackOuPallet, setRackOuPallet] = useState('')
   const [qtdConfirmada, setQtdConfirmada] = useState('')
   const [qtdRefugo, setQtdRefugo] = useState('')
+  const [comprimentoRefugo, setComprimentoRefugo] = useState('')
+  const [durezaMaterial, setDurezaMaterial] = useState('')
   // Modal de listagem de apontamentos da ordem selecionada
   const [listarApontAberto, setListarApontAberto] = useState(false)
   const [showTimerModal, setShowTimerModal] = useState(false)
@@ -273,6 +527,7 @@ const ApontamentosUsinagem = () => {
   // Modal para imprimir formulário de identificação
   const [imprimirAberto, setImprimirAberto] = useState(false)
   const [ultimoLote, setUltimoLote] = useState('')
+  const [tipoImpressao, setTipoImpressao] = useState('documento') // 'documento' | 'etiqueta'
   // Modal para romaneio e lote externo (fluxo antigo – mantendo disponível se necessário)
   const [romaneioAberto, setRomaneioAberto] = useState(false)
   const [tmpRomaneio, setTmpRomaneio] = useState('')
@@ -959,6 +1214,9 @@ const ApontamentosUsinagem = () => {
     // Abrir modal de confirmação antes de registrar
     setQtdConfirmada(String(formData.quantidade || ''))
     setRackOuPallet('')
+    setQtdRefugo('')
+    setComprimentoRefugo('')
+    setDurezaMaterial('')
     setConfirmarAberto(true)
   }
 
@@ -1013,6 +1271,7 @@ const ApontamentosUsinagem = () => {
       fim: formData.fim ? localInputToISO(formData.fim) : null,
       quantidade: qtdForm,
       qtd_refugo: Number(qtdRefugo || 0),
+      comprimento_refugo: Number(comprimentoRefugo || 0),
       qtd_pedido: formData.qtdPedido ? Number(formData.qtdPedido) : null,
       nro_op: formData.nroOp || '',
       perfil_longo: formData.perfilLongo || '',
@@ -1020,6 +1279,7 @@ const ApontamentosUsinagem = () => {
       ordem_trabalho: formData.ordemTrabalho || '',
       observacoes: formData.observacoes || '',
       rack_ou_pallet: rackOuPallet || '',
+      dureza_material: durezaMaterial || '',
       // Guardar seleção de lotes internos/externos na coluna padronizada
       lotes_externos: (formData.lotesExternos && formData.lotesExternos.length ? [...formData.lotesExternos] : []),
       lote: lote,
@@ -1031,6 +1291,12 @@ const ApontamentosUsinagem = () => {
     try {
       await addApont(payloadDB)
       console.log('Apontamento confirmado (Supabase):', payloadDB)
+      
+      // Força atualização dos apontamentos para garantir que o cálculo seja atualizado
+      setTimeout(() => {
+        recarregarApontamentos()
+      }, 500)
+      
     } catch (err) {
       console.error('Falha ao registrar apontamento no Supabase:', err)
       alert('Não foi possível registrar o apontamento no Supabase. Verifique a conexão e o schema.\nDetalhes: ' + (err?.message || 'erro desconhecido'))
@@ -1064,7 +1330,11 @@ const ApontamentosUsinagem = () => {
   // Ações do modal de imprimir
   const handleImprimirAgora = () => {
     setImprimirAberto(false)
-    imprimirDocumentoIdentificacao(ultimoLote, formData.quantidade, rackOuPallet)
+    if (tipoImpressao === 'etiqueta') {
+      imprimirEtiquetaTermica(ultimoLote, formData.quantidade, rackOuPallet, durezaMaterial)
+    } else {
+      imprimirDocumentoIdentificacao(ultimoLote, formData.quantidade, rackOuPallet, durezaMaterial)
+    }
     // Depois que escolher imprimir ou não, segue para a decisão de continuar no mesmo item
     setContinuarMesmoItemAberto(true)
   }
@@ -1104,12 +1374,25 @@ const ApontamentosUsinagem = () => {
     const chave = String(formData.ordemTrabalho || '')
     if (!chave) return 0
     try {
-      return (apontamentosDB || []).reduce((acc, a) => {
-        const seq = String(a.ordemTrabalho || a.pedido_seq || '')
+      console.log('Calculando totalApontado para:', chave)
+      console.log('ApontamentosDB:', apontamentosDB?.length || 0, 'registros')
+      
+      const total = (apontamentosDB || []).reduce((acc, a) => {
+        const seq = String(a.ordem_trabalho || a.ordemTrabalho || a.pedido_seq || '')
         const qtd = Number(a.quantidade || a.quantidadeProduzida || 0)
-        return acc + (seq === chave ? (isNaN(qtd) ? 0 : qtd) : 0)
+        const match = seq === chave
+        
+        if (match) {
+          console.log('Match encontrado:', { seq, qtd, apontamento: a })
+        }
+        
+        return acc + (match ? (isNaN(qtd) ? 0 : qtd) : 0)
       }, 0)
-    } catch {
+      
+      console.log('Total calculado:', total)
+      return total
+    } catch (e) {
+      console.error('Erro ao calcular totalApontado:', e)
       return 0
     }
   }, [apontamentosDB, formData.ordemTrabalho])
@@ -1748,10 +2031,59 @@ const ApontamentosUsinagem = () => {
               <h3 className="text-base font-semibold text-gray-800">Imprimir identificação do material?</h3>
               <button className="text-sm text-gray-600 hover:text-gray-900" onClick={handleNaoImprimir}>Fechar</button>
             </div>
-            <div className="text-sm text-gray-700 space-y-2">
+            <div className="text-sm text-gray-700 space-y-3">
               <p>Apontamento registrado com sucesso.</p>
               <p><strong>Lote gerado:</strong> {ultimoLote}</p>
-              <p>Deseja imprimir o formulário de identificação em Word agora?</p>
+              <p>Escolha o tipo de impressão:</p>
+              <div className="space-y-2">
+                {(() => {
+                  const configImpressoras = getConfiguracaoImpressoras()
+                  return (
+                    <>
+                      <label className={`flex items-center gap-2 p-3 border rounded cursor-pointer hover:bg-gray-50 ${!configImpressoras.comum.ativa ? 'opacity-50' : ''}`}>
+                        <input 
+                          type="radio" 
+                          name="tipoImpressao" 
+                          value="documento" 
+                          checked={tipoImpressao === 'documento'} 
+                          onChange={(e) => setTipoImpressao(e.target.value)}
+                          className="w-4 h-4"
+                          disabled={!configImpressoras.comum.ativa}
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold">🖨️ Formulário Completo (A4)</div>
+                          <div className="text-xs text-gray-500">Documento A4 para identificação do rack</div>
+                          <div className="text-xs text-blue-600 mt-1">
+                            {configImpressoras.comum.ativa 
+                              ? `📍 ${configImpressoras.comum.nome}` 
+                              : '⚠️ Impressora não configurada'}
+                          </div>
+                        </div>
+                      </label>
+                      <label className={`flex items-center gap-2 p-3 border rounded cursor-pointer hover:bg-gray-50 ${!configImpressoras.termica.ativa ? 'opacity-50' : ''}`}>
+                        <input 
+                          type="radio" 
+                          name="tipoImpressao" 
+                          value="etiqueta" 
+                          checked={tipoImpressao === 'etiqueta'} 
+                          onChange={(e) => setTipoImpressao(e.target.value)}
+                          className="w-4 h-4"
+                          disabled={!configImpressoras.termica.ativa}
+                        />
+                        <div className="flex-1">
+                          <div className="font-semibold">🏷️ Etiqueta Térmica (100x45mm)</div>
+                          <div className="text-xs text-gray-500">Etiqueta compacta para impressora térmica</div>
+                          <div className="text-xs text-blue-600 mt-1">
+                            {configImpressoras.termica.ativa 
+                              ? `📍 ${configImpressoras.termica.nome}` 
+                              : '⚠️ Impressora não configurada'}
+                          </div>
+                        </div>
+                      </label>
+                    </>
+                  )
+                })()}
+              </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">
               <button type="button" className="btn-outline" onClick={handleNaoImprimir}>Agora não</button>
@@ -2261,13 +2593,23 @@ const ApontamentosUsinagem = () => {
                 <label className="block text-sm text-gray-700 mb-1">Confirmar Quantidade</label>
                 <input type="number" className="input-field input-field-sm" value={qtdConfirmada} onChange={(e)=>setQtdConfirmada(e.target.value)} />
               </div>
-              <div>
-                <label className="block text-sm text-gray-700 mb-1">Refugos/Sucata</label>
-                <input type="number" className="input-field input-field-sm" placeholder="0" value={qtdRefugo} onChange={(e)=>setQtdRefugo(e.target.value)} />
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Refugos/Sucata (PCs)</label>
+                  <input type="number" className="input-field input-field-sm" placeholder="0" value={qtdRefugo} onChange={(e)=>setQtdRefugo(e.target.value)} />
+                </div>
+                <div>
+                  <label className="block text-sm text-gray-700 mb-1">Compr (mm)</label>
+                  <input type="number" className="input-field input-field-sm" placeholder="0" value={comprimentoRefugo} onChange={(e)=>setComprimentoRefugo(e.target.value)} />
+                </div>
               </div>
               <div>
                 <label className="block text-sm text-gray-700 mb-1">Número do Rack ou Pallet</label>
                 <input type="text" className="input-field input-field-sm" placeholder="Ex.: RACK-12 ou P-07" value={rackOuPallet} onChange={(e)=>setRackOuPallet(e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-700 mb-1">Dureza do Material</label>
+                <input type="text" className="input-field input-field-sm" placeholder="Ex.: HRC 45-50" value={durezaMaterial} onChange={(e)=>setDurezaMaterial(e.target.value)} />
               </div>
             </div>
             <div className="mt-4 flex justify-end gap-2">

@@ -1,19 +1,27 @@
 import { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { FaCog, FaChartBar, FaClipboardList, FaTools, FaFileAlt, FaTachometerAlt, FaBars, FaTimes, FaClock } from 'react-icons/fa'
+import { useAuth } from '../contexts/AuthContext'
 
 const Sidebar = ({ isOpen, onToggle, onClose, isMobile }) => {
   const [menuRecolhido, setMenuRecolhido] = useState(false)
+  const { user } = useAuth()
 
-  const menuItems = [
-    { path: '/dashboard', name: 'Dashboard', icon: <FaTachometerAlt /> },
-    { path: '/pedidos', name: 'Pedidos e Produtos', icon: <FaFileAlt /> },
-    { path: '/apontamentos-usinagem', name: 'Apontamentos de Usinagem', icon: <FaClipboardList /> },
-    { path: '/apontamentos-paradas', name: 'Apontamentos de Paradas', icon: <FaTools /> },
-    { path: '/relatorios', name: 'Relatórios', icon: <FaChartBar /> },
-    { path: '/previsao-trabalho', name: 'Previsão Trab.', icon: <FaClock /> },
-    { path: '/configuracoes', name: 'Configurações', icon: <FaCog /> },
+  const allMenuItems = [
+    { path: '/dashboard', name: 'Dashboard', icon: <FaTachometerAlt />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/pedidos', name: 'Pedidos e Produtos', icon: <FaFileAlt />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/apontamentos-usinagem', name: 'Apontamentos de Usinagem', icon: <FaClipboardList />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/apontamentos-paradas', name: 'Apontamentos de Paradas', icon: <FaTools />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/relatorios', name: 'Relatórios', icon: <FaChartBar />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/previsao-trabalho', name: 'Previsão Trab.', icon: <FaClock />, roles: ['admin', 'supervisor', 'operador'] },
+    { path: '/configuracoes', name: 'Configurações', icon: <FaCog />, roles: ['admin'] }, // ✅ Apenas admin
   ]
+
+  // Filtrar itens do menu baseado no role do usuário
+  const menuItems = allMenuItems.filter(item => {
+    if (!user || !user.role) return false
+    return item.roles.includes(user.role)
+  })
 
   const toggleMenu = () => {
     if (isMobile) {

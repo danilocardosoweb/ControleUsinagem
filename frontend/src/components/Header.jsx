@@ -1,14 +1,20 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FaBars } from 'react-icons/fa'
+import { useAuth } from '../contexts/AuthContext'
 
 const Header = ({ onMenuClick, isMobile }) => {
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const navigate = useNavigate()
+  const { logout } = useAuth()
   
   const handleLogout = () => {
-    // Implementar lógica de logout
-    navigate('/login')
+    try {
+      logout()
+    } finally {
+      navigate('/login')
+      setDropdownOpen(false)
+    }
   }
 
   return (

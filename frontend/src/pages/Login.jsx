@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 
 const Login = ({ onLogin }) => {
   const [username, setUsername] = useState('danilo.cardosoweb@gmail.com')
-  const [password, setPassword] = useState('senha123')
+  const [password, setPassword] = useState('123456')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   

@@ -1,6 +1,7 @@
 -- Schema Consolidado - Sistema de Usinagem
--- Data: 04/10/2025 14:37
+-- Data: 13/10/2025 17:17
 -- Objetivo: Schema unificado para Supabase/PostgreSQL com rastreabilidade completa
+-- Última atualização: Adicionadas colunas dureza_material e comprimento_refugo em apontamentos
 
 -- ============================
 -- UP (Criar/atualizar estrutura)
@@ -179,6 +180,16 @@ Estrutura: [{"codigo": "2532005482", "rack": "278", "lote": "224020089", "produt
 
 COMMENT ON COLUMN public.apontamentos.qtd_refugo IS 'Quantidade de refugo/sucata apontada na usinagem (na mesma unidade de quantidade).';
 
+-- Adicionar colunas para dureza e comprimento de refugo (v2.1.0 - 13/10/2025)
+ALTER TABLE public.apontamentos 
+ADD COLUMN IF NOT EXISTS dureza_material TEXT;
+
+ALTER TABLE public.apontamentos 
+ADD COLUMN IF NOT EXISTS comprimento_refugo NUMERIC DEFAULT 0;
+
+COMMENT ON COLUMN public.apontamentos.dureza_material IS 'Dureza do material cortado (ex: HRC 45-50)';
+COMMENT ON COLUMN public.apontamentos.comprimento_refugo IS 'Comprimento médio das peças refugadas em mm para cálculo de perdas em kg';
+
 COMMIT;
 
 -- ============================
@@ -209,5 +220,9 @@ DROP INDEX IF EXISTS idx_pedidos_nro_op;
 DROP INDEX IF EXISTS idx_apontamentos_amarrados_detalhados;
 ALTER TABLE IF EXISTS public.apontamentos DROP COLUMN IF EXISTS amarrados_detalhados;
 ALTER TABLE IF EXISTS public.apontamentos DROP COLUMN IF EXISTS qtd_refugo;
+
+-- Rollback melhorias v2.1.0 (13/10/2025)
+ALTER TABLE IF EXISTS public.apontamentos DROP COLUMN IF EXISTS dureza_material;
+ALTER TABLE IF EXISTS public.apontamentos DROP COLUMN IF EXISTS comprimento_refugo;
 
 COMMIT;

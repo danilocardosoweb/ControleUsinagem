@@ -1,5 +1,219 @@
 # Log de Alterações
 
+[14/10/2025 09:30] - [Database/Frontend] - [Sistema de Auditoria e Histórico de Ações] - [Windsurf]
+- Criada tabela historico_acoes no Supabase para auditoria completa
+- Campos: usuario_id, usuario_nome, usuario_email, acao, modulo, descricao, dados_anteriores, dados_novos, ip_address, user_agent
+- Tipos de ação: login, logout, criar, editar, excluir, visualizar, exportar, importar, aprovar, rejeitar, acesso_negado
+- Módulos rastreados: autenticacao, usuarios, pedidos, apontamentos, paradas, relatorios, configuracoes, lotes, maquinas
+- Criado AuditoriaService.js com métodos helper para registro de ações
+- Integrado registro de login/logout no AuthContext
+- Integrado registro de CRUD de usuários em Configuracoes
+- Políticas RLS: admins veem tudo, usuários veem apenas suas ações
+- Auditoria é imutável (não permite UPDATE ou DELETE)
+- Índices otimizados para consultas por usuário, ação, módulo e data
+- Senhas nunca são registradas (substituídas por ***)
+
+[14/10/2025 09:23] - [Frontend] - [Controle de acesso por nível de usuário] - [Windsurf]
+- Implementado controle de acesso baseado em roles (admin, supervisor, operador)
+- Sidebar agora filtra menu items baseado no role do usuário
+- Configurações visível apenas para usuários com role 'admin'
+- Criado componente ProtectedRoute para proteger rotas por role
+- Tela de "Acesso Negado" com informações sobre permissões necessárias
+- Proteção em dois níveis: UI (sidebar) e rotas (App.jsx)
+- Usuários não-admin não veem a aba Configurações no menu
+- Acesso direto via URL bloqueado com mensagem de erro amigável
+
+[14/10/2025 09:20] - [Frontend] - [Integração de login com Supabase] - [Windsurf]
+- AuthContext agora valida credenciais contra tabela usuarios do Supabase
+- Busca usuário por email usando supabaseService.getByIndex()
+- Verifica senha comparando com campos senha e senha_hash
+- Valida se usuário está ativo antes de permitir login
+- Atualiza campo ultimo_acesso após login bem-sucedido
+- Senha padrão alterada de 'senha123' para '123456' (conforme banco)
+- Logs detalhados para debug: usuário não encontrado, senha incorreta, usuário inativo
+- ⚠️ Senhas em texto plano - implementar hash em produção
+
+[14/10/2025 09:02] - [Database/Frontend] - [Correção do erro NOT NULL em senha_hash] - [Windsurf]
+- Alterada coluna senha_hash para nullable (ALTER COLUMN DROP NOT NULL)
+- Criado trigger sync_senha_hash() para sincronizar senha e senha_hash
+- Trigger copia automaticamente senha para senha_hash e vice-versa
+- Frontend agora envia ambos os campos (senha e senha_hash) para compatibilidade
+- Correção resolve erro "null value in column 'senha_hash' violates not-null constraint"
+- Cadastro e edição de usuários agora funcionam corretamente
+
+[14/10/2025 08:55] - [Frontend] - [Correção do reload automático na exclusão de usuários] - [Windsurf]
+- Adicionado loadItems (recarregarUsuarios) ao hook useSupabase
+- Implementado reload forçado após exclusão de usuário
+- Logs detalhados: "Excluindo", "Forçando reload", "Lista recarregada"
+- Correção garante que lista atualiza imediatamente após exclusão
+- Usuário desaparece da tela assim que é excluído
+
+[14/10/2025 08:51] - [Database] - [Migração da tabela usuarios via MCP Supabase] - [Windsurf]
+- Utilizado MCP Supabase para adicionar colunas faltantes na tabela usuarios
+- Adicionadas colunas: ativo, data_criacao, data_atualizacao, ultimo_acesso, senha
+- Criados índices: idx_usuarios_email, idx_usuarios_nivel_acesso, idx_usuarios_ativo
+- Implementado trigger automático para atualizar data_atualizacao
+- Migração de senha_hash para senha para compatibilidade com frontend
+- Tabela agora possui 4 usuários ativos (3 padrão + 1 admin)
+- Sistema de gerenciamento de usuários 100% funcional
+
+[14/10/2025 08:49] - [Frontend/Docs] - [Melhorias no sistema de usuários e documentação] - [Windsurf]
+- Adicionados logs de debug na função excluirUsuarioHandler
+- Criado aviso visual quando tabela de usuários não existe
+- Documentação completa em CONFIGURACAO_USUARIOS.md
+- Instruções passo a passo para configurar tabela no Supabase
+- Seção de troubleshooting para problemas comuns
+- Checklist de configuração completo
+- Recomendações de segurança para produção
+
+[14/10/2025 08:42] - [Frontend] - [Integração de gerenciamento de usuários com Supabase] - [Windsurf]
+- Substituído sistema de usuários simulados por integração real com Supabase
+- Hook useSupabase('usuarios') para CRUD completo de usuários
+- Funções async: adicionarUsuarioHandler, salvarEdicaoUsuario, excluirUsuarioHandler
+- Validação de campos obrigatórios (nome, email, senha)
+- Normalização de email (trim + toLowerCase)
+- Tratamento de senha na edição (manter atual se campo vazio)
+- Indicadores de carregamento durante operações
+- Mensagens de sucesso/erro com feedback ao usuário
+- Tabela vazia mostra mensagem "Nenhum usuário cadastrado"
+- Estado de carregamento desabilita botões durante operações
+
+[14/10/2025 08:32] - [Frontend] - [Sistema completo de configuração de impressoras] - [Windsurf]
+- Nova aba "Impressoras" em Configurações com interface completa
+- Configuração separada para impressora térmica (etiquetas) e comum (documentos)
+- Campos: nome, caminho de rede, IP, porta, status ativo/inativo
+- Persistência no localStorage com chave 'configuracao_impressoras'
+- Utilitário impressoras.js com funções helper para validação e acesso
+- Integração com sistema de apontamentos (verificação antes de imprimir)
+- Modal de impressão mostra qual impressora será usada
+- Botões de teste para verificar conectividade
+- Desabilitação de opções quando impressora não está configurada
+- Alertas informativos direcionando para configuração quando necessário
+
+[14/10/2025 08:28] - [Frontend] - [Correção de duplicação de funções helper] - [Windsurf]
+- Removidas declarações duplicadas de extrairFerramenta e extrairComprimentoAcabado
+- Funções agora definidas apenas no topo do arquivo (fora do componente)
+- Corrigido erro: "can't access lexical declaration 'extrairFerramenta' before initialization"
+- Sistema de filtros por Ferramenta e Comprimento funcionando corretamente
+
+[14/10/2025 08:26] - [Frontend] - [Adição de filtros por Ferramenta e Comprimento] - [Windsurf]
+- Novos filtros: Ferramenta e Comprimento nos relatórios
+- Listas dinâmicas geradas a partir dos apontamentos existentes
+- Filtros aplicados em apontamentosFiltrados
+- Grid de filtros expandido para 7 colunas (md:grid-cols-7)
+- Seção de filtros com botão Recolher/Expandir para melhor visualização
+
+[14/10/2025 08:20] - [Frontend] - [Melhoria na concatenação de amarrados no relatório compacto] - [Windsurf]
+- Refatorada função agruparRastreabilidadeCompacto() para garantir todos os campos
+- Adicionados campos Amarrado_Pedido e Amarrado_Seq na concatenação
+- Lista completa de 12 campos de amarrado sendo concatenados
+- Implementada função concat() centralizada para evitar duplicatas
+- Adicionados logs de debug para rastreamento (linhas → apontamentos agrupados)
+- Logs mostram: apontamentos, amarrados e linhas geradas
+- Correção garante que todos os amarrados selecionados apareçam no Excel
+
+[14/10/2025 08:12] - [Frontend] - [Correção de validação de nomes de abas Excel] - [Windsurf]
+- Criada função sanitizeSheetName() para validar nomes de abas
+- Remove caracteres inválidos: : \ / ? * [ ]
+- Limita nomes a 31 caracteres (padrão Excel)
+- Mapeamento de nomes curtos para abas (Producao, Paradas, Desempenho, etc)
+- Rastreabilidade com nomes: "Rastreab Detalhado" e "Rastreab Compacto"
+- Corrigidos erros: "Sheet names cannot exceed 31 chars" e "Sheet name cannot contain"
+
+[14/10/2025 08:05] - [Frontend] - [Implementação completa de relatórios Excel nativos] - [Windsurf]
+- Substituída geração CSV por Excel nativo (.xlsx) usando biblioteca XLSX
+- Implementada função downloadExcel() com auto-ajuste de largura de colunas
+- Adicionada função downloadExcelMultiSheet() para múltiplas abas
+- Criado botão "Gerar Todos os Relatórios" que exporta todos os tipos em um arquivo
+- Nomes de arquivos com timestamp ISO para melhor organização
+- Limite de 31 caracteres para nomes de abas (padrão Excel)
+- Tratamento de erros robusto com logs detalhados
+- Rastreabilidade com duas abas: Detalhado e Compacto
+- Formatação automática de colunas com largura otimizada
+
+[13/10/2025 17:57] - [Frontend] - [Correção do cálculo "Qtd. Apontada" em tempo real] - [Windsurf]
+- Adicionada atualização forçada dos apontamentos após salvar (setTimeout 500ms)
+- Corrigida busca por campo ordem_trabalho (estava usando ordemTrabalho)
+- Adicionados logs de debug para identificar problemas de sincronização
+- Função recarregarApontamentos() chamada após inserção para garantir atualização
+
+[13/10/2025 17:54] - [Frontend] - [Otimização do formulário: remoção de campo e espaçamento reduzido] - [Windsurf]
+- Removido campo "Item Cli:" (não necessário)
+- Espaçamento entre linhas reduzido de 8mm para 5mm
+- Margem inferior do cabeçalho reduzida de 12mm para 8mm
+- Padding inferior do cabeçalho reduzido de 6mm para 4mm
+- Formulário agora cabe melhor em uma folha A4
+
+[13/10/2025 17:50] - [Frontend] - [Reformulação completa do design do Formulário de Identificação] - [Windsurf]
+- Layout moderno com CSS Grid (25% labels, 75% valores)
+- Container com borda preta e padding interno
+- Cabeçalho com linha divisória e tipografia melhorada
+- Labels em maiúsculo com letter-spacing
+- Valores com fundo cinza claro (#f9f9f9) e bordas mais finas
+- Fonte Segoe UI para aparência mais moderna
+- Linha dupla (QTDE/PALET) em grid 4 colunas balanceadas
+- Espaçamento uniforme de 8mm entre campos
+
+[13/10/2025 17:48] - [Frontend] - [Configuração padrão de impressão: Paisagem e Margens Estreitas] - [Windsurf]
+- Margens ajustadas para 12.7mm (padrão de margens estreitas do Word)
+- Orientação paisagem (landscape) definida no @page e @media print
+- Body margin 0 para evitar margens extras na impressão
+- Configuração otimizada para impressão direta sem ajustes manuais
+
+[13/10/2025 17:47] - [Frontend] - [Correção de alinhamento QTDE/PALET no formulário] - [Windsurf]
+- Ajustado alinhamento da linha dupla (QTDE e PALET)
+- Labels da linha dupla agora seguem mesmo estilo das outras linhas
+- Valores da linha dupla com mesma formatação (borda, padding, altura)
+- Alinhamento vertical corrigido para bottom nos valores
+
+[13/10/2025 17:45] - [Frontend] - [Melhorias no Formulário de Identificação Word] - [Windsurf]
+- Espaçamento entre linhas aumentado de 12mm para 15mm (padrão uniforme)
+- Altura das linhas padronizada em 18mm
+- Valores centralizados horizontalmente
+- Labels mantidos alinhados à esquerda
+- Alinhamento vertical ajustado para middle (melhor distribuição)
+- Margem inferior do cabeçalho aumentada para 15mm
+
+[13/10/2025 17:40] - [Frontend] - [Fontes maiores e campo Dureza na etiqueta térmica] - [Windsurf]
+- Fontes aumentadas: labels 10pt, valores 14pt (bold), cabeçalho 14pt
+- Código de barras aumentado para 32pt
+- Adicionado campo "Dureza" na coluna esquerda (4 itens à esquerda, 3 à direita)
+- Espaçamentos reduzidos para acomodar o novo campo
+- Padding otimizado para melhor aproveitamento do espaço
+
+[13/10/2025 17:36] - [Frontend] - [Layout em 2 colunas e fontes maiores na etiqueta térmica] - [Windsurf]
+- Reorganizado em 2 colunas: 3 informações à esquerda, 3 à direita
+- Fontes aumentadas: labels 9pt, valores 12pt (bold), cabeçalho 13pt
+- Código de barras 30pt em negrito
+- Todos os valores em negrito para melhor destaque
+- Espaçamento vertical entre itens aumentado para 1.5mm
+
+[13/10/2025 17:33] - [Frontend] - [Melhorias no layout da etiqueta térmica] - [Windsurf]
+- Layout em grid 2 colunas (label + valor) para melhor organização
+- Fontes aumentadas: labels 9pt, valores 10pt, cabeçalho 11pt
+- Removida repetição do número do lote (aparece apenas no código de barras)
+- Código de barras com fonte maior (28pt) e separado por linha divisória
+- Espaçamento otimizado para melhor legibilidade
+
+[13/10/2025 17:26] - [Frontend] - [Implementada impressão de etiqueta térmica 100x45mm] - [Windsurf]
+- Criada função imprimirEtiquetaTermica() para gerar etiquetas compactas
+- Layout otimizado para impressora térmica (100mm x 45mm)
+- Modal de impressão atualizado com seleção de tipo: Formulário Completo (Word) ou Etiqueta Térmica
+- Etiqueta inclui: Cliente, Lote, Pedido, Turno, Perfil, Quantidade, Comprimento e código de barras
+- Impressão direta via window.print() sem necessidade de download
+
+[13/10/2025 17:13] - [Frontend] - [Adicionado campo "Comprimento" para refugos em Apontamentos] - [Windsurf]
+- Adicionado campo "Compr (mm)" ao lado de "Refugos/Sucata (PCs)" no modal "Confirmar Apontamento"
+- Layout em grid 2 colunas para Refugos/Sucata e Comprimento
+- Campo salvo na coluna comprimento_refugo da tabela apontamentos
+- Permite calcular perdas em kg considerando peças refugadas de vários tamanhos
+
+[13/10/2025 17:05] - [Frontend] - [Adicionado campo "Dureza do Material" em Apontamentos] - [Windsurf]
+- Adicionado campo "Dureza do Material" no modal "Confirmar Apontamento"
+- Incluído campo "DUREZA" no "Formulário de Identificação do Material Cortado" (.doc)
+- Campo salvo na coluna dureza_material da tabela apontamentos
+- Placeholder sugerido: "Ex.: HRC 45-50"
+
 [05/10/2025 08:30] - [Frontend] - [Aprimoramento da aba "Previsão Trab." com turnos e data inicial] - [Windsurf]
 - Adicionada nova aba "Turnos" para configuração de turnos de trabalho (TA, TB, TC)
 - Implementado sistema de cadastro de horas de trabalho e horas de paradas por turno

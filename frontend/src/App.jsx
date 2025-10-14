@@ -10,6 +10,7 @@ import PrevisaoTrabalho from './pages/PrevisaoTrabalho'
 import Configuracoes from './pages/Configuracoes'
 import Pedidos from './pages/Pedidos'
 import Layout from './components/Layout'
+import ProtectedRoute from './components/ProtectedRoute'
 
 function App() {
   const { user, login } = useAuth()
@@ -42,7 +43,11 @@ function App() {
         <Route path="apontamentos-paradas" element={<ApontamentosParadas />} />
         <Route path="relatorios" element={<Relatorios />} />
         <Route path="previsao-trabalho" element={<PrevisaoTrabalho />} />
-        <Route path="configuracoes" element={<Configuracoes />} />
+        <Route path="configuracoes" element={
+          <ProtectedRoute allowedRoles={['admin']}>
+            <Configuracoes />
+          </ProtectedRoute>
+        } />
         <Route path="pedidos" element={<Pedidos />} />
         <Route path="carteira-encomendas" element={<Navigate to="/pedidos" replace />} />
       </Route>

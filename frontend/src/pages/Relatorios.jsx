@@ -1,6 +1,40 @@
 import { useMemo, useState } from 'react'
 import { FaPrint } from 'react-icons/fa'
 import { useSupabase } from '../hooks/useSupabase'
+import * as XLSX from 'xlsx'
+
+// Helpers (fora do componente) para evitar problemas de hoisting/TDZ
+export function extrairComprimentoAcabado(produto) {
+  if (!produto) return ''
+  const resto = String(produto).slice(8)
+  const match = resto.match(/^\d+/)
+  const valor = match ? parseInt(match[0], 10) : null
+  return Number.isFinite(valor) ? `${valor} mm` : ''
+}
+
+export function extrairFerramenta(produto) {
+  if (!produto) return ''
+  const s = String(produto).toUpperCase()
+  // Aceitar quaisquer letras (vogais ou consoantes) no prefixo
+  const re3 = /^([A-Z]{3})([A-Z0-9]+)/
+  const re2 = /^([A-Z]{2})([A-Z0-9]+)/
+  let letras = '', resto = '', qtd = 0
+  let m = s.match(re3)
+  if (m) { letras = m[1]; resto = m[2]; qtd = 3 }
+  else {
+    m = s.match(re2)
+    if (!m) return ''
+    letras = m[1]; resto = m[2]; qtd = 4
+  }
+  let nums = ''
+  for (const ch of resto) {
+    if (/[0-9]/.test(ch)) nums += ch
+    else if (ch === 'O') nums += '0'
+    if (nums.length === qtd) break
+  }
+  if (nums.length < qtd) nums = nums.padEnd(qtd, '0')
+  return `${letras}-${nums}`
+}
 
 const Relatorios = () => {
   const [filtros, setFiltros] = useState({
@@ -11,9 +45,11 @@ const Relatorios = () => {
     operador: '',
     produto: '', // filtro por produto
     ferramenta: '', // filtro por ferramenta
+    comprimento: '', // filtro por comprimento (ex: "810 mm")
     formato: 'excel',
     modo: 'detalhado' // para rastreabilidade: detalhado|compacto
   })
+  const [filtrosAberto, setFiltrosAberto] = useState(true)
   
   // Dados reais do IndexedDB
   const { items: apontamentos } = useSupabase('apontamentos')
@@ -25,33 +61,56 @@ const Relatorios = () => {
   // Utilitário: Agrupar rastreabilidade em modo compacto (uma linha por apontamento)
   const agruparRastreabilidadeCompacto = (linhas) => {
     const map = {}
+    
+    // Função auxiliar para concatenar valores únicos
+    const concat = (a, b) => {
+      const sa = (a ? String(a) : '').trim()
+      const sb = (b ? String(b) : '').trim()
+      if (!sa) return sb
+      if (!sb) return sa
+      // Usar Set para evitar duplicatas
+      const set = new Set(sa.split(', ').filter(Boolean).concat(sb.split(', ').filter(Boolean)))
+      return Array.from(set).join(', ')
+    }
+    
+    // Lista de todos os campos de amarrado que devem ser concatenados
+    const camposAmarrado = [
+      'Amarrado_Codigo',
+      'Amarrado_Lote',
+      'Amarrado_Rack',
+      'Amarrado_Produto',
+      'Amarrado_PedidoSeq',
+      'Amarrado_Pedido',
+      'Amarrado_Seq',
+      'Amarrado_Romaneio',
+      'Amarrado_QtKG',
+      'Amarrado_QtdPC',
+      'Amarrado_Ferramenta',
+      'Amarrado_Comprimento_mm'
+    ]
+    
     for (const r of (linhas || [])) {
       const k = `${r.ID_Apont || ''}`
-      if (!map[k]) map[k] = { ...r }
-      else {
-        // concatenar campos de amarrado
-        const concat = (a, b) => {
-          const sa = (a ? String(a) : '').trim()
-          const sb = (b ? String(b) : '').trim()
-          if (!sa) return sb
-          if (!sb) return sa
-          const set = new Set(sa.split(', ').filter(Boolean).concat(sb.split(', ').filter(Boolean)))
-          return Array.from(set).join(', ')
-        }
-        map[k].Amarrado_Codigo = concat(map[k].Amarrado_Codigo, r.Amarrado_Codigo)
-        map[k].Amarrado_Lote = concat(map[k].Amarrado_Lote, r.Amarrado_Lote)
-        map[k].Amarrado_Rack = concat(map[k].Amarrado_Rack, r.Amarrado_Rack)
-        map[k].Amarrado_Produto = concat(map[k].Amarrado_Produto, r.Amarrado_Produto)
-        map[k].Amarrado_PedidoSeq = concat(map[k].Amarrado_PedidoSeq, r.Amarrado_PedidoSeq)
-        map[k].Amarrado_Romaneio = concat(map[k].Amarrado_Romaneio, r.Amarrado_Romaneio)
-        map[k].Amarrado_QtKG = concat(map[k].Amarrado_QtKG, r.Amarrado_QtKG)
-        map[k].Amarrado_QtdPC = concat(map[k].Amarrado_QtdPC, r.Amarrado_QtdPC)
-        // extras quando presentes
-        if ('Amarrado_Ferramenta' in r) map[k].Amarrado_Ferramenta = concat(map[k].Amarrado_Ferramenta, r.Amarrado_Ferramenta)
-        if ('Amarrado_Comprimento_mm' in r) map[k].Amarrado_Comprimento_mm = concat(map[k].Amarrado_Comprimento_mm, r.Amarrado_Comprimento_mm)
+      
+      if (!map[k]) {
+        // Primeira linha deste apontamento - copiar tudo
+        map[k] = { ...r }
+      } else {
+        // Concatenar todos os campos de amarrado
+        camposAmarrado.forEach(campo => {
+          if (campo in r || campo in map[k]) {
+            map[k][campo] = concat(map[k][campo] || '', r[campo] || '')
+          }
+        })
       }
     }
-    return Object.values(map)
+    
+    const resultado = Object.values(map)
+    
+    // Log para debug
+    console.log(`📊 Rastreabilidade Compacto: ${linhas.length} linhas → ${resultado.length} apontamentos agrupados`)
+    
+    return resultado
   }
 
   // Dados simulados para os filtros
@@ -65,6 +124,28 @@ const Relatorios = () => {
   const operadores = useMemo(() => {
     const nomes = Array.from(new Set((apontamentos || []).map(a => a.operador).filter(Boolean)))
     return nomes.map(n => ({ id: n, nome: n }))
+  }, [apontamentos])
+
+  // Lista dinâmica de ferramentas a partir dos apontamentos
+  const ferramentasLista = useMemo(() => {
+    const set = new Set()
+    for (const a of (apontamentos || [])) {
+      const cod = a?.produto || a?.codigoPerfil
+      const f = extrairFerramenta(cod)
+      if (f) set.add(f)
+    }
+    return Array.from(set).sort()
+  }, [apontamentos])
+
+  // Lista dinâmica de comprimentos a partir dos apontamentos
+  const comprimentosLista = useMemo(() => {
+    const set = new Set()
+    for (const a of (apontamentos || [])) {
+      const cod = a?.produto || a?.codigoPerfil
+      const c = extrairComprimentoAcabado(cod)
+      if (c) set.add(c)
+    }
+    return Array.from(set).sort((a,b)=> String(a).localeCompare(String(b)))
   }, [apontamentos])
   
   const tiposRelatorio = [
@@ -141,28 +222,150 @@ const Relatorios = () => {
     URL.revokeObjectURL(url)
   }
   
-  // Utilitário: gerar e baixar CSV (Excel compatível)
-  const downloadCSV = (rows, fileName) => {
-    if (!rows || rows.length === 0) { alert('Sem dados para exportar.'); return }
-    const headers = Array.from(
-      rows.reduce((set, r) => { Object.keys(r).forEach(k => set.add(k)); return set }, new Set())
-    )
-    const esc = (v) => {
-      if (v == null) return ''
-      const s = String(v).replace(/\r?\n|\r/g, ' ')
-      if (s.includes(';') || s.includes('"')) return '"' + s.replace(/"/g, '""') + '"'
-      return s
+  // Utilitário: sanitizar nome de aba do Excel
+  const sanitizeSheetName = (name) => {
+    if (!name) return 'Dados'
+    
+    // Remover caracteres inválidos: : \ / ? * [ ]
+    let sanitized = String(name).replace(/[:\\\/\?\*\[\]]/g, '')
+    
+    // Limitar a 31 caracteres (limite do Excel)
+    if (sanitized.length > 31) {
+      sanitized = sanitized.substring(0, 31)
     }
-    const csv = [headers.join(';')].concat(rows.map(r => headers.map(h => esc(r[h])).join(';'))).join('\n')
-    const blob = new Blob(["\ufeff" + csv], { type: 'text/csv;charset=utf-8;' }) // BOM p/ Excel PT-BR
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${fileName}.csv`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
+    
+    // Se ficou vazio após sanitização, usar nome padrão
+    return sanitized.trim() || 'Dados'
+  }
+
+  // Utilitário: gerar e baixar arquivo Excel nativo
+  const downloadExcel = (rows, fileName, sheetName = 'Relatório') => {
+    if (!rows || rows.length === 0) { 
+      alert('Sem dados para exportar.'); 
+      return 
+    }
+
+    try {
+      // Criar workbook
+      const wb = XLSX.utils.book_new()
+      
+      // Converter dados para worksheet
+      const ws = XLSX.utils.json_to_sheet(rows)
+      
+      // Configurar largura das colunas automaticamente
+      const colWidths = []
+      const headers = Object.keys(rows[0] || {})
+      
+      headers.forEach((header, index) => {
+        let maxWidth = header.length
+        rows.forEach(row => {
+          const cellValue = String(row[header] || '')
+          if (cellValue.length > maxWidth) {
+            maxWidth = cellValue.length
+          }
+        })
+        // Limitar largura máxima para evitar colunas muito largas
+        colWidths[index] = { wch: Math.min(maxWidth + 2, 50) }
+      })
+      
+      ws['!cols'] = colWidths
+      
+      // Sanitizar nome da aba antes de adicionar
+      const safeSheetName = sanitizeSheetName(sheetName)
+      
+      // Adicionar worksheet ao workbook
+      XLSX.utils.book_append_sheet(wb, ws, safeSheetName)
+      
+      // Gerar arquivo Excel
+      const excelBuffer = XLSX.write(wb, { 
+        bookType: 'xlsx', 
+        type: 'array',
+        cellStyles: true 
+      })
+      
+      // Criar blob e fazer download
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
+      
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${fileName}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+      console.log(`Excel gerado: ${fileName}.xlsx com ${rows.length} linhas`)
+      
+    } catch (error) {
+      console.error('Erro ao gerar Excel:', error)
+      alert('Erro ao gerar arquivo Excel: ' + error.message)
+    }
+  }
+
+  // Utilitário: gerar Excel com múltiplas abas
+  const downloadExcelMultiSheet = (sheetsData, fileName) => {
+    if (!sheetsData || sheetsData.length === 0) {
+      alert('Sem dados para exportar.')
+      return
+    }
+
+    try {
+      const wb = XLSX.utils.book_new()
+      
+      sheetsData.forEach(({ data, name }) => {
+        if (data && data.length > 0) {
+          const ws = XLSX.utils.json_to_sheet(data)
+          
+          // Auto-ajustar largura das colunas
+          const colWidths = []
+          const headers = Object.keys(data[0] || {})
+          
+          headers.forEach((header, index) => {
+            let maxWidth = header.length
+            data.forEach(row => {
+              const cellValue = String(row[header] || '')
+              if (cellValue.length > maxWidth) {
+                maxWidth = cellValue.length
+              }
+            })
+            colWidths[index] = { wch: Math.min(maxWidth + 2, 50) }
+          })
+          
+          ws['!cols'] = colWidths
+          
+          // Sanitizar nome da aba antes de adicionar
+          const safeSheetName = sanitizeSheetName(name || 'Dados')
+          
+          XLSX.utils.book_append_sheet(wb, ws, safeSheetName)
+        }
+      })
+      
+      const excelBuffer = XLSX.write(wb, { 
+        bookType: 'xlsx', 
+        type: 'array',
+        cellStyles: true 
+      })
+      
+      const blob = new Blob([excelBuffer], { 
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' 
+      })
+      
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${fileName}.xlsx`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+      
+    } catch (error) {
+      console.error('Erro ao gerar Excel multi-sheet:', error)
+      alert('Erro ao gerar arquivo Excel: ' + error.message)
+    }
   }
 
   // Construção das linhas para cada tipo de relatório
@@ -251,6 +454,8 @@ const Relatorios = () => {
       }
       case 'rastreabilidade': {
         const linhas = []
+        let totalAmarrados = 0
+        
         for (const a of apontamentosOrdenados) {
           const base = {
             ID_Apont: a.id,
@@ -267,6 +472,7 @@ const Relatorios = () => {
             LotesExternos: Array.isArray(a.lotes_externos) ? a.lotes_externos.join(', ') : (a.lote_externo || '')
           }
           const arr = Array.isArray(a.amarrados_detalhados) ? a.amarrados_detalhados : []
+          
           if (arr.length === 0) {
             // Fallback: derivar pelos lotes_externos quando não há amarrados_detalhados
             const lotesExt = Array.isArray(a.lotes_externos) ? a.lotes_externos : (a.lote_externo ? [a.lote_externo] : [])
@@ -298,6 +504,8 @@ const Relatorios = () => {
               linhas.push(base)
             }
           } else {
+            // Usar amarrados_detalhados quando disponível
+            totalAmarrados += arr.length
             for (const am of arr) {
               const prodBruto = am.produto || ''
               const ferramentaBruta = extrairFerramenta(prodBruto) || ''
@@ -322,6 +530,9 @@ const Relatorios = () => {
             }
           }
         }
+        
+        console.log(`📦 Rastreabilidade Detalhado: ${apontamentosOrdenados.length} apontamentos, ${totalAmarrados} amarrados, ${linhas.length} linhas geradas`)
+        
         return linhas
       }
       default:
@@ -338,15 +549,98 @@ const Relatorios = () => {
       rows = agruparRastreabilidadeCompacto(rows)
     }
     
-    const label = (tiposRelatorio.find(t => t.id === filtros.tipoRelatorio)?.nome || 'Relatorio').replace(/\s+/g, '_')
+    const tipoInfo = tiposRelatorio.find(t => t.id === filtros.tipoRelatorio)
+    const label = (tipoInfo?.nome || 'Relatorio').replace(/\s+/g, '_')
     const suffix = filtros.tipoRelatorio === 'rastreabilidade' ? `_${filtros.modo}` : ''
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+    const fileName = `${label}${suffix}_${timestamp}`
     
     if ((filtros.formato || 'excel').toLowerCase() === 'excel') {
-      downloadCSV(rows, `${label}${suffix}_${Date.now()}`)
+      // Gerar Excel nativo com nome da aba baseado no tipo de relatório
+      const sheetName = tipoInfo?.nome || 'Relatório'
+      downloadExcel(rows, fileName, sheetName)
     } else {
-      // Formato PDF ainda não implementado: exportar CSV como fallback
-      downloadCSV(rows, `${label}${suffix}_${Date.now()}`)
-      alert('Formato PDF ainda não implementado. O arquivo foi exportado em Excel (CSV).')
+      // Formato PDF ainda não implementado: exportar Excel como fallback
+      downloadExcel(rows, fileName, tipoInfo?.nome || 'Relatório')
+      alert('Formato PDF ainda não implementado. O arquivo foi exportado em Excel (.xlsx).')
+    }
+  }
+
+  // Função para gerar todos os relatórios em um único arquivo Excel
+  const handleGerarTodosRelatorios = () => {
+    try {
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '')
+      const fileName = `Relatorios_Completos_${timestamp}`
+      
+      const sheetsData = []
+      
+      // Mapeamento de nomes curtos para as abas
+      const nomesCurtos = {
+        'producao': 'Producao',
+        'paradas': 'Paradas',
+        'desempenho': 'Desempenho',
+        'oee': 'OEE',
+        'expedicao': 'Expedicao',
+        'produtividade': 'Produtividade',
+        'rastreabilidade': 'Rastreab'
+      }
+      
+      // Gerar dados para cada tipo de relatório
+      tiposRelatorio.forEach(tipo => {
+        try {
+          // Temporariamente alterar o tipo de relatório para gerar os dados
+          const originalTipo = filtros.tipoRelatorio
+          filtros.tipoRelatorio = tipo.id
+          
+          let rows = buildRows(tipo.id)
+          
+          // Nome curto para a aba
+          const nomeBase = nomesCurtos[tipo.id] || tipo.nome
+          
+          // Aplicar modo compacto para rastreabilidade
+          if (tipo.id === 'rastreabilidade') {
+            // Gerar duas abas: detalhado e compacto
+            sheetsData.push({
+              data: rows,
+              name: `${nomeBase} Detalhado`
+            })
+            
+            const rowsCompacto = agruparRastreabilidadeCompacto([...rows])
+            sheetsData.push({
+              data: rowsCompacto,
+              name: `${nomeBase} Compacto`
+            })
+          } else {
+            sheetsData.push({
+              data: rows,
+              name: nomeBase
+            })
+          }
+          
+          // Restaurar tipo original
+          filtros.tipoRelatorio = originalTipo
+          
+        } catch (error) {
+          console.error(`Erro ao gerar relatório ${tipo.nome}:`, error)
+        }
+      })
+      
+      // Filtrar abas vazias
+      const sheetsComDados = sheetsData.filter(sheet => sheet.data && sheet.data.length > 0)
+      
+      if (sheetsComDados.length === 0) {
+        alert('Nenhum dado encontrado para gerar relatórios.')
+        return
+      }
+      
+      // Gerar Excel com múltiplas abas
+      downloadExcelMultiSheet(sheetsComDados, fileName)
+      
+      alert(`Arquivo Excel gerado com ${sheetsComDados.length} abas de relatórios!`)
+      
+    } catch (error) {
+      console.error('Erro ao gerar todos os relatórios:', error)
+      alert('Erro ao gerar relatórios completos: ' + error.message)
     }
   }
   
@@ -380,38 +674,7 @@ const Relatorios = () => {
       return ''
     } catch { return '' }
   }
-  // Comprimento a partir do código do produto (8º+ dígitos)
-  const extrairComprimentoAcabado = (produto) => {
-    if (!produto) return ''
-    const resto = String(produto).slice(8)
-    const match = resto.match(/^\d+/)
-    const valor = match ? parseInt(match[0], 10) : null
-    return Number.isFinite(valor) ? `${valor} mm` : ''
-  }
-  // Extrai código de ferramenta a partir do código de produto/perfil
-  const extrairFerramenta = (produto) => {
-    if (!produto) return ''
-    const s = String(produto).toUpperCase()
-    // Aceitar quaisquer letras (vogais ou consoantes) no prefixo
-    const re3 = /^([A-Z]{3})([A-Z0-9]+)/
-    const re2 = /^([A-Z]{2})([A-Z0-9]+)/
-    let letras = '', resto = '', qtd = 0
-    let m = s.match(re3)
-    if (m) { letras = m[1]; resto = m[2]; qtd = 3 }
-    else {
-      m = s.match(re2)
-      if (!m) return ''
-      letras = m[1]; resto = m[2]; qtd = 4
-    }
-    let nums = ''
-    for (const ch of resto) {
-      if (/[0-9]/.test(ch)) nums += ch
-      else if (ch === 'O') nums += '0'
-      if (nums.length === qtd) break
-    }
-    if (nums.length < qtd) nums = nums.padEnd(qtd, '0')
-    return `${letras}-${nums}`
-  }
+  // Funções extrairComprimentoAcabado e extrairFerramenta já estão definidas no topo do arquivo
 
   // Filtro aplicado aos apontamentos conforme controles da tela
   // Mapa id->nome da máquina
@@ -433,6 +696,16 @@ const Relatorios = () => {
       if (df && (!dd || dd > df)) return false
       if (filtros.maquina && String(a.maquina) !== String(filtros.maquina)) return false
       if (filtros.operador && String(a.operador) !== String(filtros.operador)) return false
+      // Filtros adicionais: ferramenta e comprimento
+      const cod = a?.produto || a?.codigoPerfil
+      if (filtros.ferramenta) {
+        const f = extrairFerramenta(cod)
+        if (f !== filtros.ferramenta) return false
+      }
+      if (filtros.comprimento) {
+        const c = extrairComprimentoAcabado(cod)
+        if (c !== filtros.comprimento) return false
+      }
       return true
     })
   }, [apontamentos, filtros])
@@ -1013,11 +1286,22 @@ const Relatorios = () => {
       <h1 className="text-2xl font-bold text-gray-800">Relatórios</h1>
       
       <div className="bg-white rounded-lg shadow p-4 md:p-6">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4">Filtros</h2>
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-lg font-semibold text-gray-700">Filtros</h2>
+          <button
+            type="button"
+            onClick={() => setFiltrosAberto(v => !v)}
+            className="text-sm text-blue-600 hover:text-blue-700 hover:underline"
+            title={filtrosAberto ? 'Recolher filtros' : 'Expandir filtros'}
+          >
+            {filtrosAberto ? 'Recolher' : 'Expandir'}
+          </button>
+        </div>
         
+        {filtrosAberto && (
         <form onSubmit={handleSubmit}>
-          {/* Grid responsivo para filtros principais (5 colunas em md+) */}
-          <div className="grid grid-cols-1 md:grid-cols-5 gap-4 mb-4">
+          {/* Grid responsivo para filtros principais (7 colunas em md+) */}
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
                 Tipo de Relatório
@@ -1093,6 +1377,40 @@ const Relatorios = () => {
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Ferramenta
+              </label>
+              <select
+                name="ferramenta"
+                value={filtros.ferramenta}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">Todas as ferramentas</option>
+                {ferramentasLista.map(f => (
+                  <option key={f} value={f}>{f}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Comprimento
+              </label>
+              <select
+                name="comprimento"
+                value={filtros.comprimento}
+                onChange={handleChange}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              >
+                <option value="">Todos os comprimentos</option>
+                {comprimentosLista.map(c => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+            </div>
             
             {/* Modo de Exibição (apenas para rastreabilidade) */}
             {filtros.tipoRelatorio === 'rastreabilidade' && (
@@ -1130,14 +1448,24 @@ const Relatorios = () => {
               </select>
             </div>
             
-            <button 
-              type="submit" 
-              className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors whitespace-nowrap"
-            >
-              Gerar Relatório
-            </button>
+            <div className="flex gap-2">
+              <button 
+                type="submit" 
+                className="px-6 py-2 bg-blue-600 text-white font-medium rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors whitespace-nowrap"
+              >
+                Gerar Relatório
+              </button>
+              <button 
+                type="button"
+                onClick={handleGerarTodosRelatorios}
+                className="px-6 py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors whitespace-nowrap"
+              >
+                Gerar Todos os Relatórios
+              </button>
+            </div>
           </div>
         </form>
+        )}
       </div>
       
       <div className="bg-white rounded-lg shadow p-4 md:p-6">
