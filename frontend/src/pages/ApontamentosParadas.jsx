@@ -18,6 +18,22 @@ const ApontamentosParadas = () => {
   const { items: motivosParada } = useSupabase('motivos_parada')
   const { items: tiposParada } = useSupabase('tipos_parada')
 
+  // Normaliza o texto de tipo para comparação e valores de select
+  const normalizeTipo = (txt) => {
+    if (!txt) return ''
+    try {
+      const s = String(txt).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'')
+      return s.replace(/\s+/g, '_')
+    } catch { return String(txt).toLowerCase() }
+  }
+
+  // Lista de motivos filtrados pelo tipo selecionado
+  const motivosFiltrados = useMemo(() => {
+    const sel = normalizeTipo(formData.tipoParada)
+    if (!sel) return motivosParada || []
+    return (motivosParada || []).filter(m => normalizeTipo(m?.tipo_parada || m?.tipo) === sel)
+  }, [motivosParada, formData.tipoParada])
+
   // Removido seed local: agora os valores devem vir de Configurações (Supabase)
   // Utilitário: converter datetime-local (YYYY-MM-DDTHH:MM) para ISO (UTC)
   const localInputToISO = (val) => {
@@ -63,10 +79,20 @@ const ApontamentosParadas = () => {
         setFormData({
           ...formData,
           motivoParada: motivo.descricao ?? motivo.nome,
-          tipoParada: (motivo.tipo_parada || motivo.tipo || formData.tipoParada)
+          tipoParada: normalizeTipo(motivo.tipo_parada || motivo.tipo || formData.tipoParada)
         })
         return
       }
+    }
+    // Se selecionou um tipo, limpar motivo se não pertencer ao novo tipo
+    if (name === 'tipoParada') {
+      const novoTipo = normalizeTipo(value)
+      const aindaValido = (motivosParada || []).some(m => {
+        const mm = normalizeTipo(m?.tipo_parada || m?.tipo)
+        return mm === novoTipo && (String(m?.descricao ?? m?.nome ?? m) === String(formData.motivoParada))
+      })
+      setFormData(prev => ({ ...prev, tipoParada: novoTipo, motivoParada: aindaValido ? prev.motivoParada : '' }))
+      return
     }
     
     setFormData({
@@ -175,26 +201,6 @@ const ApontamentosParadas = () => {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Motivo da Parada</label>
-              <select
-                className="input-field"
-                value={formData.motivoParada}
-                onChange={(e) => handleChange({ target: { name: 'motivoParada', value: e.target.value } })}
-                required
-              >
-                <option value="">Selecione o motivo</option>
-                {(motivosParada || []).map(m => {
-                  const desc = (m && (m.descricao ?? m.nome ?? m)) || '-'
-                  const key = m && (m.id ?? desc)
-                  // Salvar e exibir a DESCRIÇÃO como valor
-                  return (
-                    <option key={key} value={desc}>{desc}</option>
-                  )
-                })}
-              </select>
-            </div>
-
-            <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de Parada</label>
               <select
                 className="input-field"
@@ -206,9 +212,29 @@ const ApontamentosParadas = () => {
                 {(tiposParada || []).map(t => {
                   const desc = (t && (t.descricao ?? t.nome ?? t)) || '-'
                   const key = t && (t.id ?? desc)
-                  const value = typeof desc === 'string' ? desc.toLowerCase().replace(/\s+/g,'_') : String(desc)
+                  const value = normalizeTipo(desc)
                   return (
                     <option key={key} value={value}>{desc}</option>
+                  )
+                })}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Motivo da Parada</label>
+              <select
+                className="input-field"
+                value={formData.motivoParada}
+                onChange={(e) => handleChange({ target: { name: 'motivoParada', value: e.target.value } })}
+                required
+              >
+                <option value="">Selecione o motivo</option>
+                {(motivosFiltrados || []).map(m => {
+                  const desc = (m && (m.descricao ?? m.nome ?? m)) || '-'
+                  const key = m && (m.id ?? desc)
+                  // Salvar e exibir a DESCRIÇÃO como valor
+                  return (
+                    <option key={key} value={desc}>{desc}</option>
                   )
                 })}
               </select>

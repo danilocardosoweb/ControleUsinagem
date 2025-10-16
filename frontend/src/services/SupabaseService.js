@@ -196,6 +196,31 @@ class SupabaseService {
   }
 
   /**
+   * Remove múltiplos itens de uma tabela
+   * @param {string} tableName - Nome da tabela
+   * @param {array} ids - Array de IDs dos itens a serem removidos
+   * @returns {Promise} Promise que resolve quando os itens forem removidos
+   */
+  async removeMany(tableName, ids) {
+    await this.init();
+    try {
+      if (!Array.isArray(ids) || ids.length === 0) return Promise.resolve();
+      const { error } = await this.supabase
+        .from(tableName)
+        .delete()
+        .in('id', ids);
+      if (error) {
+        console.error(`Erro ao remover múltiplos itens de ${tableName}:`, error);
+        return Promise.reject(error);
+      }
+      return Promise.resolve();
+    } catch (error) {
+      console.error(`Erro ao remover múltiplos itens de ${tableName}:`, error);
+      return Promise.reject(error);
+    }
+  }
+
+  /**
    * Limpa todos os itens de uma tabela
    * @param {string} tableName - Nome da tabela
    * @returns {Promise} Promise que resolve quando a tabela for limpa

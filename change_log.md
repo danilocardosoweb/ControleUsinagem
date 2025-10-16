@@ -1,5 +1,16 @@
 # Log de Alterações
 
+[16/10/2025 09:14] - [Frontend] - [Pedidos: Botão "Limpar Filtros" na mesma linha e filtros compactos] - [Cascade]
+- Grid de filtros alterado para 7 colunas em `Pedidos.jsx`
+- Altura dos inputs/selects reduzida (h-8) para caber tudo em uma linha
+- Botão "Limpar Filtros" alinhado na mesma linha dos filtros
+
+[16/10/2025 09:10] - [Frontend] - [PCP: Seleção múltipla e exclusão em lote] - [Cascade]
+- Adicionados checkboxes por linha e seletor no cabeçalho
+- Botões "Excluir Selecionados" e "Excluir Todos"
+- Handlers utilizam removeMany() no SupabaseService
+- Experiência otimizada: não é mais necessário excluir um por um
+
 [14/10/2025 12:24] - [Frontend] - [Filtro de prioridades em Apontamentos de Usinagem] - [Windsurf]
 - Adicionado filtro minimalista no campo "Pedido/Seq" dos Apontamentos
 - Botão toggle "Todos" / "Prioritários" ao lado do label

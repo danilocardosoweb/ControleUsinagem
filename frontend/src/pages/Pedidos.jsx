@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+  import { useState, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { FaFilter, FaSearch, FaSort, FaSortUp, FaSortDown, FaEye, FaEdit, FaTrash, FaDatabase, FaSync, FaList, FaStar } from 'react-icons/fa'
 import axios from 'axios'
@@ -19,6 +19,18 @@ const Pedidos = () => {
   } = useSupabase('pedidos')
   // Apontamentos para consolidar quantidade apontada por pedido
   const { items: apontamentosDB } = useSupabase('apontamentos')
+  // Catálogo de máquinas para mapear ID → nome
+  const { items: maquinasCat } = useSupabase('maquinas')
+  // Mapa id->nome de máquina para exibições (modal 'Apontamentos do Pedido')
+  const maqMap = useMemo(() => {
+    const map = {}
+    for (const m of (maquinasCat || [])) {
+      if (!m) continue
+      map[String(m.id)] = m.nome || m.codigo || `Máquina ${m.id}`
+    }
+    return map
+  }, [maquinasCat])
+
   // Prioridades do PCP
   const [prioridades, setPrioridades] = useState([])
   const [pedidosPrioritarios, setPedidosPrioritarios] = useState(new Set())
@@ -38,6 +50,7 @@ const Pedidos = () => {
   // Estados para filtros
   const [filtros, setFiltros] = useState({
     cliente: '',
+    pedidoCliente: '',
     produto: '',
     status: '',
     ferramenta: '',
@@ -372,6 +385,13 @@ const Pedidos = () => {
         p.cliente && p.cliente.toLowerCase().includes(filtros.cliente.toLowerCase())
       )
     }
+    // Filtro por Pedido Cliente
+    if (filtros.pedidoCliente) {
+      const alvo = filtros.pedidoCliente.toLowerCase()
+      resultado = resultado.filter(p => 
+        (p.pedido_cliente || '') && String(p.pedido_cliente).toLowerCase().includes(alvo)
+      )
+    }
     
     // Filtro por produto
     if (filtros.produto) {
@@ -686,7 +706,7 @@ const Pedidos = () => {
             } else if (todasColunas['OP'] !== undefined) {
               colunas.op = todasColunas['OP']
             } else {
-              // Fallback por inclusão de 'op'
+              // Fallback: tentar encontrar por inclusão de 'op'
               colunas.op = cabecalhos.findIndex(c => {
                 const nc = norm(c)
                 return nc.includes('op')
@@ -979,6 +999,7 @@ const Pedidos = () => {
   const limparFiltros = () => {
     setFiltros({
       cliente: '',
+      pedidoCliente: '',
       produto: '',
       status: '',
       ferramenta: '',
@@ -1039,8 +1060,8 @@ const Pedidos = () => {
       <div className="bg-white rounded-lg shadow p-3 mb-4">
         <h2 className="text-base font-semibold text-gray-700 mb-2">Filtros</h2>
         
-        {/* Grid: 2 linhas em md+ */}
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 items-end">
+        {/* Grid: 1 linha em md+ com 8 colunas (7 filtros + botão) */}
+        <div className="grid grid-cols-1 md:grid-cols-8 gap-3 items-end">
           <div>
             <label className="block text-xs font-medium text-gray-700 mb-1">Cliente</label>
             <input
@@ -1049,7 +1070,19 @@ const Pedidos = () => {
               value={filtros.cliente}
               onChange={handleFiltroChange}
               placeholder="Filtrar por cliente"
-              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-gray-700 mb-1">Pedido Cliente</label>
+            <input
+              type="text"
+              name="pedidoCliente"
+              value={filtros.pedidoCliente}
+              onChange={handleFiltroChange}
+              placeholder="Filtrar por pedido do cliente"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
@@ -1061,7 +1094,7 @@ const Pedidos = () => {
               value={filtros.produto}
               onChange={handleFiltroChange}
               placeholder="Filtrar por produto"
-              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
@@ -1071,7 +1104,7 @@ const Pedidos = () => {
               name="status"
               value={filtros.status}
               onChange={handleFiltroChange}
-              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="">Todos</option>
               <option value="pendente">Pendente</option>
@@ -1086,7 +1119,7 @@ const Pedidos = () => {
               name="prioridade"
               value={filtros.prioridade}
               onChange={handleFiltroChange}
-              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             >
               <option value="todos">Todos</option>
               <option value="prioritarios">Apenas Prioritários</option>
@@ -1101,7 +1134,7 @@ const Pedidos = () => {
               value={filtros.ferramenta}
               onChange={handleFiltroChange}
               placeholder="Ex.: TP-0192"
-              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
 
@@ -1113,14 +1146,14 @@ const Pedidos = () => {
               value={filtros.comprimento}
               onChange={handleFiltroChange}
               placeholder="Ex.: 1100"
-              className="w-full h-9 px-2 py-1.5 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="w-full h-8 px-2 py-1 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
             />
           </div>
           {/* Botão na mesma linha */}
           <div className="md:col-auto justify-self-end">
             <button
               type="button"
-              className="px-3 h-9 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
+              className="px-3 h-8 text-sm font-medium text-gray-700 bg-gray-100 border border-gray-300 rounded-md hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
               onClick={limparFiltros}
             >
               Limpar Filtros
@@ -1452,7 +1485,7 @@ const Pedidos = () => {
               <h3 className="text-lg font-semibold text-gray-800">Detalhes do Pedido</h3>
               <div className="flex items-center gap-3">
                 {(() => { const { total } = obterApontamentosDoPedido(pedidoSelecionado); return (
-                  <div className="px-3 py-1 rounded-md bg-primary-50 text-primary-700 text-sm font-semibold border border-primary-200" title="Soma de apontamentos deste pedido">
+                  <div className="px-3 py-1 rounded-md bg-primary-50 text-primary-700 text-sm font-semibold border border-primary-200" title="Total apontado (todos)">
                     Qtd. Apontada: {total}
                   </div>
                 ) })()}
@@ -1568,7 +1601,7 @@ const Pedidos = () => {
                         <tr key={idx} className="border-t">
                           <td className="px-3 py-2">{a.inicio ? new Date(a.inicio).toLocaleString('pt-BR') : '-'}</td>
                           <td className="px-3 py-2">{a.fim ? new Date(a.fim).toLocaleString('pt-BR') : '-'}</td>
-                          <td className="px-3 py-2">{a.maquina || '-'}</td>
+                          <td className="px-3 py-2">{(() => { const id = a.maquina ?? a.maquina_id ?? a.maquinaId; const nome = a.maquina_nome ?? a.maquinaNome; return maqMap[String(id)] || nome || id || '-'; })()}</td>
                           <td className="px-3 py-2">{a.operador || '-'}</td>
                           <td className="px-3 py-2">{(a.produto || a.codigoPerfil || '-') }</td>
                           <td className="px-3 py-2 text-right">{a.quantidade || a.quantidadeProduzida || 0}</td>

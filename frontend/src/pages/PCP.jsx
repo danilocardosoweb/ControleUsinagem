@@ -29,6 +29,8 @@ const PCP = () => {
   const [buscando, setBuscando] = useState(false)
   const [sugestoesPedidoCliente, setSugestoesPedidoCliente] = useState([])
   const [mostrarSugestoes, setMostrarSugestoes] = useState(false)
+  const [selecionados, setSelecionados] = useState(new Set())
+  const todosSelecionados = prioridades.length > 0 && selecionados.size === prioridades.length
 
   useEffect(() => {
     carregarDados()
@@ -316,6 +318,48 @@ const PCP = () => {
     }
   }
 
+  const toggleSelecionadoPrioridade = (id) => {
+    const next = new Set(selecionados)
+    if (next.has(id)) next.delete(id); else next.add(id)
+    setSelecionados(next)
+  }
+
+  const selecionarTodosPrioridades = () => {
+    if (todosSelecionados) {
+      setSelecionados(new Set())
+    } else {
+      setSelecionados(new Set(prioridades.map(p => p.id)))
+    }
+  }
+
+  const handleExcluirSelecionados = async () => {
+    if (selecionados.size === 0) return
+    if (!window.confirm(`Excluir ${selecionados.size} registro(s) selecionado(s)?`)) return
+    try {
+      await supabaseService.removeMany('pcp_prioridades', Array.from(selecionados))
+      setSelecionados(new Set())
+      await carregarDados()
+      alert('Registros selecionados excluídos com sucesso!')
+    } catch (error) {
+      console.error('Erro ao excluir selecionados:', error)
+      alert('Erro ao excluir selecionados')
+    }
+  }
+
+  const handleExcluirTodos = async () => {
+    if (prioridades.length === 0) return
+    if (!window.confirm('Excluir TODOS os registros da lista?')) return
+    try {
+      await supabaseService.removeMany('pcp_prioridades', prioridades.map(p => p.id))
+      setSelecionados(new Set())
+      await carregarDados()
+      alert('Todos os registros foram excluídos!')
+    } catch (error) {
+      console.error('Erro ao excluir todos:', error)
+      alert('Erro ao excluir todos')
+    }
+  }
+
   const getStatusColor = (status) => {
     const cores = {
       'pendente': 'bg-yellow-100 text-yellow-800',
@@ -352,15 +396,30 @@ const PCP = () => {
         <p className="text-gray-600">Gerencie as prioridades de produção da usinagem</p>
       </div>
 
-      {/* Botão Adicionar */}
       <div className="mb-6">
-        <button
-          onClick={() => setMostrarFormulario(!mostrarFormulario)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <FaPlus />
-          {mostrarFormulario ? 'Cancelar' : 'Adicionar Prioridade'}
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={() => setMostrarFormulario(!mostrarFormulario)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <FaPlus />
+            {mostrarFormulario ? 'Cancelar' : 'Adicionar Prioridade'}
+          </button>
+          <button
+            onClick={handleExcluirSelecionados}
+            disabled={selecionados.size === 0}
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:bg-gray-400"
+          >
+            Excluir Selecionados ({selecionados.size})
+          </button>
+          <button
+            onClick={handleExcluirTodos}
+            disabled={prioridades.length === 0}
+            className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:bg-gray-400"
+          >
+            Excluir Todos
+          </button>
+        </div>
       </div>
 
       {/* Formulário de Nova Prioridade */}
@@ -598,6 +657,9 @@ const PCP = () => {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-4 py-3">
+                  <input type="checkbox" checked={todosSelecionados} onChange={selecionarTodosPrioridades} />
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Prioridade
                 </th>
@@ -637,6 +699,13 @@ const PCP = () => {
               ) : (
                 prioridades.map((prioridade, index) => (
                   <tr key={prioridade.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-4 whitespace-nowrap">
+                      <input
+                        type="checkbox"
+                        checked={selecionados.has(prioridade.id)}
+                        onChange={() => toggleSelecionadoPrioridade(prioridade.id)}
+                      />
+                    </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-2">
                         <span className={`px-3 py-1 rounded-full text-sm font-bold ${getPrioridadeColor(prioridade.prioridade)}`}>

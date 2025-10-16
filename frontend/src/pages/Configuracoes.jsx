@@ -260,10 +260,31 @@ const Configuracoes = () => {
   // Motivos de parada (Supabase)
   const { items: motivosParada, addItem: addMotivo, updateItem: updMotivo, removeItem: delMotivo } = useSupabase('motivos_parada')
   const [novoMotivoParada, setNovoMotivoParada] = useState('')
+  const [novoTipoMotivoParada, setNovoTipoMotivoParada] = useState('planejada')
+  const [editandoMotivo, setEditandoMotivo] = useState(null)
+  const [modoEdicaoMotivo, setModoEdicaoMotivo] = useState(false)
   
   // Tipos de parada (Supabase)
   const { items: tiposParada, addItem: addTipo, updateItem: updTipo, removeItem: delTipo } = useSupabase('tipos_parada')
   const [novoTipoParada, setNovoTipoParada] = useState('')
+
+  // Normalizador de tipo (remove acentos e troca espaços por _)
+  const normalizeTipo = (txt) => {
+    if (!txt) return ''
+    try {
+      const s = String(txt).toLowerCase().normalize('NFD').replace(/\p{Diacritic}/gu,'')
+      return s.replace(/\s+/g,'_')
+    } catch { return String(txt).toLowerCase() }
+  }
+
+  // Definir default do select de tipo (novo motivo) quando carregar tipos
+  useEffect(() => {
+    if ((tiposParada || []).length > 0) {
+      const first = tiposParada[0]
+      const desc = first?.descricao || first?.nome || ''
+      if (desc) setNovoTipoMotivoParada(normalizeTipo(desc))
+    }
+  }, [tiposParada])
   
   // Máquinas persistidas no IndexedDB
   const { items: maquinas, addItem: addMaquina, updateItem: updateMaquina, removeItem: removeMaquina } = useSupabase('maquinas')
@@ -273,7 +294,7 @@ const Configuracoes = () => {
     modelo: '',
     fabricante: '',
     ano: new Date().getFullYear(),
-    status: 'ativo'
+    status: 'ativa'
   })
   const [editandoMaquina, setEditandoMaquina] = useState(null)
   const [modoEdicaoMaquina, setModoEdicaoMaquina] = useState(false)
@@ -559,8 +580,38 @@ const Configuracoes = () => {
   // Funções para motivos de parada
   const adicionarMotivoParada = async () => {
     if (!novoMotivoParada.trim()) { alert('Digite uma descrição para o motivo de parada'); return }
-    await addMotivo({ descricao: novoMotivoParada.trim(), tipo: null })
+    const tipo = String(novoTipoMotivoParada || 'planejada')
+    await addMotivo({ descricao: novoMotivoParada.trim(), tipo_parada: tipo })
     setNovoMotivoParada('')
+    setNovoTipoMotivoParada('planejada')
+  }
+
+  const iniciarEdicaoMotivo = (motivo) => {
+    setEditandoMotivo({
+      id: motivo.id,
+      descricao: motivo.descricao || '',
+      tipo_parada: motivo.tipo_parada || ''
+    })
+    setModoEdicaoMotivo(true)
+  }
+
+  const salvarEdicaoMotivo = async () => {
+    if (!editandoMotivo || !String(editandoMotivo.descricao || '').trim()) {
+      alert('Descrição é obrigatória')
+      return
+    }
+    const payload = {
+      id: editandoMotivo.id,
+      descricao: String(editandoMotivo.descricao).trim(),
+      tipo_parada: String(editandoMotivo.tipo_parada || '').trim()
+    }
+    await updMotivo(payload)
+    cancelarEdicaoMotivo()
+  }
+
+  const cancelarEdicaoMotivo = () => {
+    setEditandoMotivo(null)
+    setModoEdicaoMotivo(false)
   }
   
   const excluirMotivoParada = async (id) => { if (id && window.confirm('Excluir este motivo?')) await delMotivo(id) }
@@ -580,13 +631,15 @@ const Configuracoes = () => {
       alert('Código e nome da máquina são obrigatórios')
       return
     }
+    const statusBruto = (novaMaquina.status || 'ativa').toLowerCase()
+    const statusNorm = statusBruto === 'ativo' ? 'ativa' : (statusBruto === 'inativo' ? 'inativa' : statusBruto)
     await addMaquina({
       codigo: String(novaMaquina.codigo).trim(),
       nome: String(novaMaquina.nome).trim(),
       modelo: String(novaMaquina.modelo || '').trim(),
       fabricante: String(novaMaquina.fabricante || '').trim(),
       ano: parseInt(novaMaquina.ano) || new Date().getFullYear(),
-      status: novaMaquina.status || 'ativo'
+      status: statusNorm
     })
     
     // Limpar formulário
@@ -596,7 +649,7 @@ const Configuracoes = () => {
       modelo: '',
       fabricante: '',
       ano: new Date().getFullYear(),
-      status: 'ativo'
+      status: 'ativa'
     })
   }
   
@@ -610,8 +663,11 @@ const Configuracoes = () => {
       alert('Código e nome da máquina são obrigatórios')
       return
     }
+    const statusBrutoEd = String(editandoMaquina.status || '').toLowerCase()
+    const statusNormEd = statusBrutoEd === 'ativo' ? 'ativa' : (statusBrutoEd === 'inativo' ? 'inativa' : statusBrutoEd || 'ativa')
     await updateMaquina({
       ...editandoMaquina,
+      status: statusNormEd,
       ano: parseInt(editandoMaquina.ano) || new Date().getFullYear()
     })
     cancelarEdicaoMaquina()
@@ -2183,15 +2239,26 @@ const Configuracoes = () => {
           <div className="bg-white rounded-lg shadow p-6">
             <h2 className="text-lg font-semibold text-gray-700 mb-4">Motivos de Parada</h2>
             
-            <div className="flex space-x-2 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-4">
               <input
                 type="text"
-                className="input-field flex-grow"
+                className="input-field md:col-span-3"
                 placeholder="Digite um novo motivo de parada"
                 value={novoMotivoParada}
                 onChange={(e) => setNovoMotivoParada(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && adicionarMotivoParada()}
               />
+              <select
+                className="input-field md:col-span-2"
+                value={novoTipoMotivoParada}
+                onChange={(e) => setNovoTipoMotivoParada(e.target.value)}
+              >
+                {(tiposParada || []).map(t => {
+                  const desc = t?.descricao || t?.nome || '-'
+                  const val = normalizeTipo(desc)
+                  return <option key={t.id || val} value={val}>{desc}</option>
+                })}
+              </select>
               <button
                 type="button"
                 className="btn-primary whitespace-nowrap"
@@ -2208,27 +2275,85 @@ const Configuracoes = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Descrição
                     </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Tipo
+                    </th>
                     <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Ações
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {motivosParada.map(motivo => (
-                    <tr key={motivo.id}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                        {motivo.descricao}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
-                          className="text-red-600 hover:text-red-900"
-                          onClick={() => excluirMotivoParada(motivo.id)}
-                        >
-                          <FaTrash />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                  {motivosParada.map(motivo => {
+                    const labelTipo = (() => {
+                      const match = (tiposParada || []).find(t => normalizeTipo(t?.descricao || t?.nome) === String(motivo.tipo_parada || ''))
+                      if (match) return match.descricao
+                      // fallback legível
+                      const s = String(motivo.tipo_parada || '').replace(/_/g,' ')
+                      return s ? s.charAt(0).toUpperCase() + s.slice(1) : '-'
+                    })()
+                    const isEditing = modoEdicaoMotivo && editandoMotivo?.id === motivo.id
+                    return (
+                      <tr key={motivo.id}>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                          {isEditing ? (
+                            <input
+                              type="text"
+                              className="input-field"
+                              value={editandoMotivo.descricao}
+                              onChange={(e)=> setEditandoMotivo(prev => ({...prev, descricao: e.target.value}))}
+                            />
+                          ) : (
+                            motivo.descricao
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {isEditing ? (
+                            <select
+                              className="input-field"
+                              value={editandoMotivo.tipo_parada || ''}
+                              onChange={(e)=> setEditandoMotivo(prev => ({...prev, tipo_parada: e.target.value}))}
+                            >
+                              {(tiposParada || []).map(t => {
+                                const desc = t?.descricao || t?.nome || '-'
+                                const val = normalizeTipo(desc)
+                                return <option key={t.id || val} value={val}>{desc}</option>
+                              })}
+                            </select>
+                          ) : (
+                            labelTipo
+                          )}
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                          {isEditing ? (
+                            <>
+                              <button className="text-primary-600 hover:text-primary-900 mr-3" onClick={salvarEdicaoMotivo}>
+                                <FaSave />
+                              </button>
+                              <button className="text-gray-600 hover:text-gray-900" onClick={cancelarEdicaoMotivo}>
+                                <FaTimes />
+                              </button>
+                            </>
+                          ) : (
+                            <>
+                              <button
+                                className="text-primary-600 hover:text-primary-900 mr-3"
+                                onClick={() => iniciarEdicaoMotivo(motivo)}
+                              >
+                                <FaEdit />
+                              </button>
+                              <button
+                                className="text-red-600 hover:text-red-900"
+                                onClick={() => excluirMotivoParada(motivo.id)}
+                              >
+                                <FaTrash />
+                              </button>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
